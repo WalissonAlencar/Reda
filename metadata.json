@@ -1,0 +1,8 @@
+{
+  "name": "RedaTrack",
+  "description": "Plataforma Inteligente de Correção de Redações - Gestão e correção de redações com perfis de Administrador, Professor e Aluno.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
