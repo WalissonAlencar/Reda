@@ -165,7 +165,12 @@ export function StudentDashboard({ onNavigate }: { onNavigate?: (tab: string) =>
   // Evolution Line Chart
   const evolutionData = correctedEssays.map((e, idx) => ({
     name: `Red. ${idx + 1}`,
-    score: e.score || 0
+    score: e.score || 0,
+    comp_1: e.comp_1 || 0,
+    comp_2: e.comp_2 || 0,
+    comp_3: e.comp_3 || 0,
+    comp_4: e.comp_4 || 0,
+    comp_5: e.comp_5 || 0,
   }));
 
   const latestEssay = correctedEssays[correctedEssays.length - 1];
@@ -265,11 +270,17 @@ export function StudentDashboard({ onNavigate }: { onNavigate?: (tab: string) =>
                   <Line 
                       type="monotone" 
                       dataKey="score" 
+                      name="Nota Geral"
                       stroke="#1e3a8a" 
                       strokeWidth={4} 
                       dot={{ r: 6, fill: "#fb923c", strokeWidth: 3, stroke: "#fff" }}
                       activeDot={{ r: 8 }}
                   />
+                  <Line type="monotone" dataKey="comp_1" name="Comp. 1" stroke="#cbd5e1" strokeWidth={1.5} dot={false} strokeDasharray="3 3" />
+                  <Line type="monotone" dataKey="comp_2" name="Comp. 2" stroke="#cbd5e1" strokeWidth={1.5} dot={false} strokeDasharray="3 3" />
+                  <Line type="monotone" dataKey="comp_3" name="Comp. 3" stroke="#cbd5e1" strokeWidth={1.5} dot={false} strokeDasharray="3 3" />
+                  <Line type="monotone" dataKey="comp_4" name="Comp. 4" stroke="#cbd5e1" strokeWidth={1.5} dot={false} strokeDasharray="3 3" />
+                  <Line type="monotone" dataKey="comp_5" name="Comp. 5" stroke="#cbd5e1" strokeWidth={1.5} dot={false} strokeDasharray="3 3" />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
