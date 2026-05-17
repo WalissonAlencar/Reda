@@ -13,6 +13,7 @@ import { StudentEssayHistory } from './components/StudentEssayHistory';
 import { TeacherPendingEssays } from './components/TeacherPendingEssays';
 import { AdminReports } from './components/AdminReports';
 import { AdminThemes } from './components/AdminThemes';
+import { StudentThemesLibrary } from './components/StudentThemesLibrary';
 import { Essay } from './types';
 import { AuthProvider } from './context/AuthContext';
 
@@ -66,6 +67,7 @@ function AppContent() {
               {activeTab === 'dashboard' && <StudentDashboard />}
               {activeTab === 'essays' && <StudentEssayHistory />}
               {activeTab === 'submit' && <StudentSubmitEssay />}
+              {activeTab === 'themes_library' && <StudentThemesLibrary setActiveTab={setActiveTab} />}
             </>
           )}
         </div>

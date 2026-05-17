@@ -8,7 +8,8 @@ import {
   Settings, 
   LogOut, 
   LayoutDashboard,
-  GraduationCap
+  GraduationCap,
+  Library
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -37,6 +38,7 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
       { id: 'dashboard', label: 'Meu Progresso', icon: LayoutDashboard },
       { id: 'essays', label: 'Redações', icon: FileText },
       { id: 'submit', label: 'Enviar Redação', icon: BookOpen },
+      { id: 'themes_library', label: 'Biblioteca de Temas', icon: Library },
     ]
   };
 
