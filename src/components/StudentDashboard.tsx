@@ -26,14 +26,30 @@ export function StudentDashboard({ onNavigate }: { onNavigate?: (tab: string) =>
   const { user, userData } = useAuth();
   const [essays, setEssays] = useState<any[]>([]);
   const [globalAverages, setGlobalAverages] = useState({c1: 120, c2: 120, c3: 120, c4: 120, c5: 120}); // Default fallback
+  const [suggestedTheme, setSuggestedTheme] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (user?.id) {
       fetchEssays();
       fetchGlobalStats();
+      fetchSuggestedTheme();
     }
   }, [user]);
+
+  const fetchSuggestedTheme = async () => {
+    try {
+      const { data } = await supabase.from('essay_themes').select('title').eq('is_active', true);
+      if (data && data.length > 0) {
+        const randomIndex = Math.floor(Math.random() * data.length);
+        setSuggestedTheme(data[randomIndex].title);
+      } else {
+        setSuggestedTheme("Aguardando novos temas...");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const fetchGlobalStats = async () => {
     try {
@@ -245,9 +261,12 @@ export function StudentDashboard({ onNavigate }: { onNavigate?: (tab: string) =>
 
         <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col justify-center">
             <p className="text-slate-500 text-sm font-medium mb-2">Próximo Desafio</p>
-            <h4 className="font-bold text-slate-800">Tema da Semana:</h4>
-            <p className="text-slate-600 text-sm mt-1 leading-relaxed">"O impacto das notícias falsas na democracia brasileira contemporânea"</p>
-            <button className="flex items-center gap-1 text-sm font-bold text-brand-orange mt-4 hover:gap-2 transition-all">
+            <h4 className="font-bold text-slate-800">Tema Sugerido:</h4>
+            <p className="text-slate-600 text-sm mt-1 leading-relaxed">"{suggestedTheme || 'Carregando...'}"</p>
+            <button 
+                onClick={() => onNavigate && onNavigate('themes_library')}
+                className="flex items-center gap-1 text-sm font-bold text-brand-orange mt-4 hover:gap-2 transition-all w-fit"
+            >
                 Acessar Proposta <ChevronRight size={16} />
             </button>
         </div>
