@@ -56,7 +56,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           name: data.name,
           email: data.email,
           role: data.role as UserRole,
-          avatar: data.avatar_url
+          avatar: data.avatar_url,
+          phone: data.phone
         });
       }
     } catch (error) {

@@ -9,7 +9,9 @@ import {
   LogOut, 
   LayoutDashboard,
   GraduationCap,
-  Library
+  Library,
+  DollarSign,
+  Building2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -26,8 +28,11 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
       { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { id: 'students', label: 'Alunos', icon: Users },
       { id: 'teachers', label: 'Professores', icon: GraduationCap },
+      { id: 'schools', label: 'Escolas Parceiras', icon: Building2 },
       { id: 'themes', label: 'Temas', icon: FileText },
       { id: 'reports', label: 'Relatórios', icon: BarChart3 },
+      { id: 'finance', label: 'Financeiro', icon: DollarSign },
+      { id: 'settings', label: 'Configurações', icon: Settings },
     ],
     TEACHER: [
       { id: 'dashboard', label: 'Minhas Correções', icon: LayoutDashboard },

@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { BookOpen, GraduationCap, ShieldCheck, Mail, Lock, User, Loader2 } from 'lucide-react';
+import { PartnerSchool } from '../types';
 
 export function LoginPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -12,6 +13,31 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [role, setRole] = useState<'ADMIN' | 'TEACHER' | 'STUDENT'>('STUDENT');
+  
+  // Extra fields (Shared)
+  const [phone, setPhone] = useState('');
+
+  // Teacher extra fields
+  const [stateUF, setStateUF] = useState('');
+  const [city, setCity] = useState('');
+  const [educationLevel, setEducationLevel] = useState('');
+  const [isEnemEvaluator, setIsEnemEvaluator] = useState(false);
+
+  // Student extra fields
+  const [age, setAge] = useState('');
+  const [schoolName, setSchoolName] = useState('');
+  const [schoolYear, setSchoolYear] = useState('');
+  const [schoolType, setSchoolType] = useState('');
+  const [targetCourse, setTargetCourse] = useState('');
+  const [partnerSchools, setPartnerSchools] = useState<PartnerSchool[]>([]);
+
+  useEffect(() => {
+    async function fetchSchools() {
+      const { data } = await supabase.from('partner_schools').select('*').order('name');
+      if (data) setPartnerSchools(data);
+    }
+    fetchSchools();
+  }, []);
 
   const handleGoogleLogin = async () => {
     setLoading(true);
@@ -43,13 +69,24 @@ export function LoginPage() {
         });
         if (error) throw error;
       } else {
+        const finalRole = role === 'TEACHER' ? 'PENDING_TEACHER' : 'STUDENT';
         const { error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
             data: {
               full_name: name,
-              role: role // We can pass role to metadata so the trigger could read it if we want, but default is STUDENT
+              role: finalRole,
+              phone: phone || undefined,
+              state: role === 'TEACHER' ? stateUF : undefined,
+              city: role === 'TEACHER' ? city : undefined,
+              education_level: role === 'TEACHER' ? educationLevel : undefined,
+              is_enem_evaluator: role === 'TEACHER' ? isEnemEvaluator : undefined,
+              school_name: role === 'STUDENT' ? schoolName : undefined,
+              school_year: role === 'STUDENT' ? schoolYear : undefined,
+              age: role === 'STUDENT' ? parseInt(age) : undefined,
+              school_type: role === 'STUDENT' ? schoolType : undefined,
+              target_course: role === 'STUDENT' ? targetCourse : undefined,
             }
           }
         });
@@ -129,6 +166,195 @@ export function LoginPage() {
                   />
                 </div>
               </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Qual o seu perfil?</label>
+                <div className="flex gap-4 mb-4">
+                  <button
+                    type="button"
+                    onClick={() => setRole('STUDENT')}
+                    className={`flex-1 py-3 px-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${role === 'STUDENT' ? 'border-brand-blue bg-brand-blue/5 text-brand-blue font-bold shadow-sm' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                  >
+                    <BookOpen size={24} />
+                    <span>Aluno</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRole('TEACHER')}
+                    className={`flex-1 py-3 px-4 rounded-xl border flex flex-col items-center gap-2 transition-all ${role === 'TEACHER' ? 'border-brand-orange bg-brand-orange/5 text-brand-orange font-bold shadow-sm' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                  >
+                    <GraduationCap size={24} />
+                    <span>Professor</span>
+                  </button>
+                </div>
+              </div>
+
+              {role === 'TEACHER' && (
+                <div className="space-y-4 p-4 bg-orange-50 border border-orange-100 rounded-2xl animate-in slide-in-from-top-2">
+                  <h3 className="font-bold text-slate-800 text-sm">Dados Adicionais do Professor</h3>
+                  
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">WhatsApp</label>
+                    <input
+                      type="tel"
+                      required
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-orange/20 focus:border-brand-orange outline-none text-sm"
+                      placeholder="(11) 99999-9999"
+                    />
+                  </div>
+
+                  <div className="flex gap-4">
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-slate-700 mb-1">Estado</label>
+                      <select
+                        required
+                        value={stateUF}
+                        onChange={(e) => setStateUF(e.target.value)}
+                        className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-orange/20 focus:border-brand-orange outline-none text-sm"
+                      >
+                        <option value="">Selecione...</option>
+                        <option value="AC">Acre</option><option value="AL">Alagoas</option><option value="AP">Amapá</option><option value="AM">Amazonas</option><option value="BA">Bahia</option><option value="CE">Ceará</option><option value="DF">Distrito Federal</option><option value="ES">Espírito Santo</option><option value="GO">Goiás</option><option value="MA">Maranhão</option><option value="MT">Mato Grosso</option><option value="MS">Mato Grosso do Sul</option><option value="MG">Minas Gerais</option><option value="PA">Pará</option><option value="PB">Paraíba</option><option value="PR">Paraná</option><option value="PE">Pernambuco</option><option value="PI">Piauí</option><option value="RJ">Rio de Janeiro</option><option value="RN">Rio Grande do Norte</option><option value="RS">Rio Grande do Sul</option><option value="RO">Rondônia</option><option value="RR">Roraima</option><option value="SC">Santa Catarina</option><option value="SP">São Paulo</option><option value="SE">Sergipe</option><option value="TO">Tocantins</option>
+                      </select>
+                    </div>
+                    <div className="flex-[2]">
+                      <label className="block text-xs font-medium text-slate-700 mb-1">Cidade</label>
+                      <input
+                        type="text"
+                        required
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
+                        className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-orange/20 focus:border-brand-orange outline-none text-sm"
+                        placeholder="Nome da Cidade"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Escolaridade</label>
+                    <select
+                      required
+                      value={educationLevel}
+                      onChange={(e) => setEducationLevel(e.target.value)}
+                      className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-orange/20 focus:border-brand-orange outline-none text-sm"
+                    >
+                      <option value="">Selecione...</option>
+                      <option value="Superior Cursando">Ensino Superior (Cursando)</option>
+                      <option value="Superior Completo">Ensino Superior (Completo)</option>
+                      <option value="Pós-graduação">Pós-graduação / Especialização</option>
+                      <option value="Mestrado">Mestrado</option>
+                      <option value="Doutorado">Doutorado</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-3 mt-4 pt-2 border-t border-orange-200/50">
+                    <input
+                      type="checkbox"
+                      id="enem_evaluator"
+                      checked={isEnemEvaluator}
+                      onChange={(e) => setIsEnemEvaluator(e.target.checked)}
+                      className="w-4 h-4 text-brand-orange rounded border-slate-300 focus:ring-brand-orange"
+                    />
+                    <label htmlFor="enem_evaluator" className="text-sm font-medium text-slate-700 cursor-pointer">
+                      Sou corretor(a) oficial do ENEM
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {role === 'STUDENT' && (
+                <div className="space-y-4 p-4 bg-blue-50 border border-blue-100 rounded-2xl animate-in slide-in-from-top-2">
+                  <h3 className="font-bold text-slate-800 text-sm">Dados Adicionais do Aluno</h3>
+                  
+                  <div className="flex gap-4">
+                    <div className="flex-[2]">
+                      <label className="block text-xs font-medium text-slate-700 mb-1">WhatsApp</label>
+                      <input
+                        type="tel"
+                        required
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue outline-none text-sm"
+                        placeholder="(11) 99999-9999"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-slate-700 mb-1">Idade</label>
+                      <input
+                        type="number"
+                        required
+                        min="10"
+                        max="100"
+                        value={age}
+                        onChange={(e) => setAge(e.target.value)}
+                        className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue outline-none text-sm"
+                        placeholder="17"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Nome da Escola / Instituição</label>
+                    <select
+                      required
+                      value={schoolName}
+                      onChange={(e) => setSchoolName(e.target.value)}
+                      className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue outline-none text-sm"
+                    >
+                      <option value="">Selecione a Escola...</option>
+                      {partnerSchools.map(school => (
+                        <option key={school.id} value={school.name}>{school.name}</option>
+                      ))}
+                      <option value="Outra (Não listada)">Outra (Não listada)</option>
+                    </select>
+                  </div>
+
+                  <div className="flex gap-4">
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-slate-700 mb-1">Tipo de Escola</label>
+                      <select
+                        required
+                        value={schoolType}
+                        onChange={(e) => setSchoolType(e.target.value)}
+                        className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue outline-none text-sm"
+                      >
+                        <option value="">Selecione...</option>
+                        <option value="Pública">Pública</option>
+                        <option value="Privada">Privada</option>
+                      </select>
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-slate-700 mb-1">Ano Escolar</label>
+                      <select
+                        required
+                        value={schoolYear}
+                        onChange={(e) => setSchoolYear(e.target.value)}
+                        className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue outline-none text-sm"
+                      >
+                        <option value="">Selecione...</option>
+                        <option value="1º Ano do Ensino Médio">1º Ano do Ensino Médio</option>
+                        <option value="2º Ano do Ensino Médio">2º Ano do Ensino Médio</option>
+                        <option value="3º Ano do Ensino Médio">3º Ano do Ensino Médio</option>
+                        <option value="Cursinho / Pré-vestibular">Cursinho / Pré-vestibular</option>
+                        <option value="Já concluiu">Já concluí o Ensino Médio</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Curso Pretendido (Foco)</label>
+                    <input
+                      type="text"
+                      required
+                      value={targetCourse}
+                      onChange={(e) => setTargetCourse(e.target.value)}
+                      className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue outline-none text-sm"
+                      placeholder="Ex: Medicina, Direito, Engenharia..."
+                    />
+                  </div>
+                </div>
+              )}
             </>
           )}
 
