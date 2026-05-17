@@ -298,7 +298,7 @@ export function StudentDashboard({ onNavigate }: { onNavigate?: (tab: string) =>
                             <PolarAngleAxis dataKey="subject" tick={{fill: '#475569', fontSize: 11, fontWeight: 700}} />
                             <PolarRadiusAxis angle={30} domain={[0, 200]} tick={false} axisLine={false} />
                             <Radar
-                                name="Média da Turma"
+                                name="Média dos Demais"
                                 dataKey="B"
                                 stroke="#94a3b8"
                                 fill="#cbd5e1"
@@ -324,7 +324,7 @@ export function StudentDashboard({ onNavigate }: { onNavigate?: (tab: string) =>
               <div className="flex justify-center gap-6 mt-4">
                   <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full bg-slate-300"></div>
-                      <span className="text-xs text-slate-500 font-medium">Média da Turma</span>
+                      <span className="text-xs text-slate-500 font-medium">Média dos Demais</span>
                   </div>
                   <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full bg-brand-orange"></div>
