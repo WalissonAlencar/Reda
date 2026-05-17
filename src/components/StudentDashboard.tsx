@@ -25,11 +25,32 @@ import { cn } from '../lib/utils';
 export function StudentDashboard({ onNavigate }: { onNavigate?: (tab: string) => void }) {
   const { user, userData } = useAuth();
   const [essays, setEssays] = useState<any[]>([]);
+  const [globalAverages, setGlobalAverages] = useState({c1: 120, c2: 120, c3: 120, c4: 120, c5: 120}); // Default fallback
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user?.id) fetchEssays();
+    if (user?.id) {
+      fetchEssays();
+      fetchGlobalStats();
+    }
   }, [user]);
+
+  const fetchGlobalStats = async () => {
+    try {
+      const { data, error } = await supabase.from('essay_corrections').select('comp_1, comp_2, comp_3, comp_4, comp_5');
+      if (data && data.length > 0) {
+        setGlobalAverages({
+          c1: Math.round(data.reduce((a,c) => a + (c.comp_1 || 0), 0) / data.length),
+          c2: Math.round(data.reduce((a,c) => a + (c.comp_2 || 0), 0) / data.length),
+          c3: Math.round(data.reduce((a,c) => a + (c.comp_3 || 0), 0) / data.length),
+          c4: Math.round(data.reduce((a,c) => a + (c.comp_4 || 0), 0) / data.length),
+          c5: Math.round(data.reduce((a,c) => a + (c.comp_5 || 0), 0) / data.length)
+        });
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const fetchEssays = async () => {
     try {
@@ -134,11 +155,11 @@ export function StudentDashboard({ onNavigate }: { onNavigate?: (tab: string) =>
   const c5Avg = correctedEssays.length > 0 ? Math.round(correctedEssays.reduce((acc, c) => acc + (c.comp_5 || 0), 0) / correctedEssays.length) : 0;
 
   const radarData = [
-    { subject: `C1: ${c1Avg}`, A: c1Avg, fullMark: 200 },
-    { subject: `C2: ${c2Avg}`, A: c2Avg, fullMark: 200 },
-    { subject: `C3: ${c3Avg}`, A: c3Avg, fullMark: 200 },
-    { subject: `C4: ${c4Avg}`, A: c4Avg, fullMark: 200 },
-    { subject: `C5: ${c5Avg}`, A: c5Avg, fullMark: 200 },
+    { subject: `C1: ${c1Avg}`, A: c1Avg, B: globalAverages.c1, fullMark: 200 },
+    { subject: `C2: ${c2Avg}`, A: c2Avg, B: globalAverages.c2, fullMark: 200 },
+    { subject: `C3: ${c3Avg}`, A: c3Avg, B: globalAverages.c3, fullMark: 200 },
+    { subject: `C4: ${c4Avg}`, A: c4Avg, B: globalAverages.c4, fullMark: 200 },
+    { subject: `C5: ${c5Avg}`, A: c5Avg, B: globalAverages.c5, fullMark: 200 },
   ];
 
   // Evolution Line Chart
@@ -277,11 +298,18 @@ export function StudentDashboard({ onNavigate }: { onNavigate?: (tab: string) =>
                             <PolarAngleAxis dataKey="subject" tick={{fill: '#475569', fontSize: 11, fontWeight: 700}} />
                             <PolarRadiusAxis angle={30} domain={[0, 200]} tick={false} axisLine={false} />
                             <Radar
-                                name="Média"
+                                name="Média da Turma"
+                                dataKey="B"
+                                stroke="#94a3b8"
+                                fill="#cbd5e1"
+                                fillOpacity={0.2}
+                            />
+                            <Radar
+                                name="Sua Média"
                                 dataKey="A"
                                 stroke="#fb923c"
                                 fill="#fb923c"
-                                fillOpacity={0.3}
+                                fillOpacity={0.4}
                             />
                         </RadarChart>
                     </ResponsiveContainer>
@@ -294,6 +322,10 @@ export function StudentDashboard({ onNavigate }: { onNavigate?: (tab: string) =>
             </div>
             {correctedEssays.length > 0 && (
               <div className="flex justify-center gap-6 mt-4">
+                  <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-slate-300"></div>
+                      <span className="text-xs text-slate-500 font-medium">Média da Turma</span>
+                  </div>
                   <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full bg-brand-orange"></div>
                       <span className="text-xs text-slate-500 font-medium">Sua Média</span>
