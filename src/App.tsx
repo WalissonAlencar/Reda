@@ -3,6 +3,7 @@ import { useAuth } from './context/AuthContext';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { AdminDashboard } from './components/AdminDashboard';
+import { AdminEssays } from './components/AdminEssays';
 import { TeacherDashboard } from './components/TeacherDashboard';
 import { StudentDashboard } from './components/StudentDashboard';
 import { LoginPage } from './components/LoginPage';
@@ -83,6 +84,7 @@ function AppContent() {
           {user.role === 'ADMIN' && (
             <>
               {activeTab === 'dashboard' && <AdminDashboard />}
+              {activeTab === 'essays' && <AdminEssays />}
               {activeTab === 'students' && <StudentManagement />}
               {activeTab === 'teachers' && <TeacherManagement />}
               {activeTab === 'schools' && <AdminSchools />}

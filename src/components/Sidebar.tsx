@@ -26,6 +26,7 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   const menuItems = {
     ADMIN: [
       { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { id: 'essays', label: 'Gerenciar Redações', icon: FileText },
       { id: 'students', label: 'Alunos', icon: Users },
       { id: 'teachers', label: 'Professores', icon: GraduationCap },
       { id: 'schools', label: 'Escolas Parceiras', icon: Building2 },
