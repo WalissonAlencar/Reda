@@ -48,7 +48,7 @@ function AppContent() {
            </div>
            <h2 className="text-2xl font-bold mb-3 text-slate-800">Cadastro em Análise</h2>
            <p className="text-slate-500 mb-8 leading-relaxed">
-             Seu perfil de professor foi recebido e está sob análise da coordenação da RedaTrack. 
+             Seu perfil de professor foi recebido e está sob análise da coordenação da Redatto. 
              Você poderá acessar a plataforma assim que for aprovado.
            </p>
            <button 
@@ -103,7 +103,7 @@ function AppContent() {
 
           {user.role === 'STUDENT' && (
             <>
-              {activeTab === 'dashboard' && <StudentDashboard />}
+              {activeTab === 'dashboard' && <StudentDashboard onNavigate={setActiveTab} />}
               {activeTab === 'essays' && <StudentEssayHistory />}
               {activeTab === 'submit' && <StudentSubmitEssay />}
               {activeTab === 'themes_library' && <StudentThemesLibrary setActiveTab={setActiveTab} />}

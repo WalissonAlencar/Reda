@@ -6,7 +6,8 @@ import {
   TrendingUp, 
   Award,
   ChevronRight,
-  Target
+  Target,
+  FileDown
 } from 'lucide-react';
 import { 
   LineChart, 
@@ -28,14 +29,27 @@ export function StudentDashboard({ onNavigate }: { onNavigate?: (tab: string) =>
   const [globalAverages, setGlobalAverages] = useState({c1: 120, c2: 120, c3: 120, c4: 120, c5: 120}); // Default fallback
   const [suggestedTheme, setSuggestedTheme] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sheetUrl, setSheetUrl] = useState<string>('');
 
   useEffect(() => {
     if (user?.id) {
       fetchEssays();
       fetchGlobalStats();
       fetchSuggestedTheme();
+      fetchSettings();
     }
   }, [user]);
+
+  const fetchSettings = async () => {
+    try {
+      const { data } = await supabase.from('platform_settings').select('essay_sheet_url').limit(1).single();
+      if (data && data.essay_sheet_url) {
+        setSheetUrl(data.essay_sheet_url);
+      }
+    } catch (err) {
+      console.error("Erro ao buscar configurações da folha de redação", err);
+    }
+  };
 
   const fetchSuggestedTheme = async () => {
     try {
@@ -215,12 +229,25 @@ export function StudentDashboard({ onNavigate }: { onNavigate?: (tab: string) =>
           <h1 className="text-3xl font-bold tracking-tight">Olá, {firstName}! 👋</h1>
           <p className="text-slate-500 mt-1">Pronto para elevar o nível da sua escrita?</p>
         </div>
-        <button 
-          onClick={() => onNavigate && onNavigate('send')}
-          className="flex items-center justify-center gap-2 px-6 py-3 bg-brand-orange text-white rounded-xl font-bold hover:bg-brand-orange/90 transition-all shadow-xl shadow-brand-orange/20">
-          <Upload size={20} />
-          Enviar Nova Redação
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          {sheetUrl && (
+            <a 
+              href={sheetUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 px-6 py-3 bg-white text-slate-700 hover:text-brand-blue border border-slate-200 hover:border-brand-blue/30 rounded-xl font-bold transition-all shadow-sm"
+            >
+              <FileDown size={20} className="text-brand-orange animate-pulse" />
+              Baixar Folha de Redação
+            </a>
+          )}
+          <button 
+            onClick={() => onNavigate && onNavigate('submit')}
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-brand-orange text-white rounded-xl font-bold hover:bg-brand-orange/90 transition-all shadow-xl shadow-brand-orange/20">
+            <Upload size={20} />
+            Enviar Nova Redação
+          </button>
+        </div>
       </div>
 
       {/* Highlights */}

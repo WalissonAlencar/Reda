@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { UploadCloud, FileText, Loader2, CheckCircle, X } from 'lucide-react';
+import { UploadCloud, FileText, Loader2, CheckCircle, X, FileDown } from 'lucide-react';
 
 export function StudentSubmitEssay() {
   const { user } = useAuth();
@@ -11,6 +11,7 @@ export function StudentSubmitEssay() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [themes, setThemes] = useState<any[]>([]);
+  const [sheetUrl, setSheetUrl] = useState<string>('');
 
   useEffect(() => {
     async function loadThemes() {
@@ -21,7 +22,20 @@ export function StudentSubmitEssay() {
         .order('created_at', { ascending: false });
       if (data) setThemes(data);
     }
+
+    async function loadSettings() {
+      const { data } = await supabase
+        .from('platform_settings')
+        .select('essay_sheet_url')
+        .limit(1)
+        .single();
+      if (data && data.essay_sheet_url) {
+        setSheetUrl(data.essay_sheet_url);
+      }
+    }
+
     loadThemes();
+    loadSettings();
   }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -158,6 +172,29 @@ export function StudentSubmitEssay() {
                 </div>
               )}
             </div>
+
+            {sheetUrl && (
+              <div className="p-5 bg-amber-50/50 border border-amber-200/60 rounded-2xl flex items-start gap-4 animate-in fade-in slide-in-from-top-2">
+                <div className="w-12 h-12 bg-white text-brand-orange rounded-xl flex items-center justify-center shrink-0 shadow-sm border border-amber-100">
+                  <FileDown size={24} />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-bold text-slate-800 leading-tight">Folha de Redação Oficial</h4>
+                  <p className="text-sm text-slate-600 mt-1">
+                    Escreva sua redação na folha oficial do Redatto para garantir uma correção padronizada.
+                  </p>
+                  <a 
+                    href={sheetUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 mt-3 px-4 py-2 bg-brand-orange text-white rounded-lg text-xs font-bold hover:bg-brand-orange/90 transition-all shadow-md shadow-brand-orange/10"
+                  >
+                    <FileDown size={14} />
+                    Baixar Folha Oficial (PDF)
+                  </a>
+                </div>
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">
