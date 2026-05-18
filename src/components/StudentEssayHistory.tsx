@@ -269,7 +269,49 @@ export function StudentEssayHistory() {
                                  {essay.numCorrections === 2 && (
                                    <p className="font-bold text-xs text-slate-400 uppercase tracking-wider mb-2">Avaliador {idx + 1}</p>
                                  )}
-                                 <p className="italic">{corr.feedback ? `"${corr.feedback}"` : "Nenhum comentário adicional fornecido."}</p>
+                                 {(() => {
+                                   if (!corr.feedback) return <p className="italic text-slate-400">Nenhum comentário adicional fornecido.</p>;
+                                   try {
+                                     const parsed = JSON.parse(corr.feedback);
+                                     const pageNotes = parsed.pageNotes || {};
+                                     const hasPageNotes = Object.values(pageNotes).some(v => typeof v === 'string' && v.trim().length > 0);
+                                     return (
+                                       <div className="space-y-4">
+                                         {parsed.general && (
+                                           <div>
+                                             <p className="font-semibold text-slate-500 text-xs uppercase tracking-wider mb-1">Comentários Gerais</p>
+                                             <p className="italic text-slate-700">"{parsed.general}"</p>
+                                           </div>
+                                         )}
+                                         {hasPageNotes && (
+                                           <div className="pt-2 border-t border-slate-100">
+                                             <p className="font-semibold text-slate-500 text-xs uppercase tracking-wider mb-2">Observações por Página</p>
+                                             <div className="space-y-2">
+                                               {Object.entries(pageNotes).map(([pageIdx, note]) => {
+                                                 if (!note || !(note as string).trim()) return null;
+                                                 return (
+                                                   <div key={pageIdx} className="bg-slate-50 border border-slate-100 rounded-lg p-2.5 flex items-start gap-2.5">
+                                                     <span className="bg-brand-blue/10 text-brand-blue text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 mt-0.5">
+                                                       Pág. {parseInt(pageIdx) + 1}
+                                                     </span>
+                                                     <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                                                       {note as string}
+                                                      </p>
+                                                   </div>
+                                                 );
+                                               })}
+                                             </div>
+                                           </div>
+                                         )}
+                                         {!parsed.general && !hasPageNotes && (
+                                           <p className="italic text-slate-400">Nenhum comentário adicional fornecido.</p>
+                                         )}
+                                       </div>
+                                     );
+                                   } catch (e) {
+                                     return <p className="italic text-slate-700">"{corr.feedback}"</p>;
+                                   }
+                                 })()}
                                  
                                  {corr.corrected_pdf_url && (
                                    <div className="mt-3">
@@ -318,14 +360,67 @@ export function StudentEssayHistory() {
                                   </div>
                                 )}
                                 <div className={cn(
-                                  "w-full flex-1 bg-slate-200 border-2 border-slate-200 overflow-hidden shadow-inner",
+                                  "w-full flex-1 bg-white border border-slate-200 overflow-hidden shadow-inner flex flex-col lg:flex-row items-stretch",
                                   essay.correctionsList.length === 2 ? "rounded-b-xl" : "rounded-xl"
                                 )}>
-                                  <iframe 
-                                    src={`${corr.corrected_pdf_url}#view=FitH`}
-                                    className="w-full h-full border-0"
-                                    title={`Redação Corrigida Avaliador ${idx + 1}`}
-                                  />
+                                  {/* Left: PDF Iframe */}
+                                  <div className="flex-1 bg-slate-100 overflow-hidden relative min-h-[300px] lg:min-h-0">
+                                    <iframe 
+                                      src={`${corr.corrected_pdf_url}#view=FitH`}
+                                      className="w-full h-full border-0"
+                                      title={`Redação Corrigida Avaliador ${idx + 1}`}
+                                    />
+                                  </div>
+
+                                  {/* Right: Sidebar Page Notes for Student */}
+                                  {(() => {
+                                    let pageNotes: Record<number, string> = {};
+                                    try {
+                                      const parsed = JSON.parse(corr.feedback);
+                                      pageNotes = parsed.pageNotes || {};
+                                    } catch (e) {}
+
+                                    const hasNotes = Object.values(pageNotes).some(v => typeof v === 'string' && v.trim().length > 0);
+
+                                    return (
+                                      <div className="w-full lg:w-[280px] bg-slate-50 border-t lg:border-t-0 lg:border-l border-slate-200 p-4 flex flex-col gap-3 overflow-y-auto shrink-0 select-none">
+                                        <div className="flex items-center gap-2 pb-2.5 border-b border-slate-200">
+                                          <div className="bg-brand-blue/10 p-2 rounded-lg text-brand-blue flex items-center justify-center shrink-0">
+                                            <MessageSquare size={16} />
+                                          </div>
+                                          <div>
+                                            <h5 className="font-bold text-slate-700 text-xs uppercase tracking-wider">Anotações do Prof.</h5>
+                                            <p className="text-[9px] text-slate-400 font-medium">Observações por página</p>
+                                          </div>
+                                        </div>
+
+                                        <div className="flex-1 space-y-3 overflow-y-auto pr-1 py-1 custom-scrollbar">
+                                          {hasNotes ? (
+                                            Object.entries(pageNotes).map(([pageIdx, note]) => {
+                                              if (!note || !(note as string).trim()) return null;
+                                              return (
+                                                <div key={pageIdx} className="bg-white border border-slate-200/80 rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow">
+                                                  <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-slate-100">
+                                                    <span className="bg-brand-blue/15 text-brand-blue text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                                      Página {parseInt(pageIdx) + 1}
+                                                    </span>
+                                                  </div>
+                                                  <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                                                    {note as string}
+                                                  </p>
+                                                </div>
+                                              );
+                                            })
+                                          ) : (
+                                            <div className="flex flex-col items-center justify-center py-12 text-slate-400 text-center gap-2">
+                                              <MessageSquare size={24} className="text-slate-300" />
+                                              <p className="text-xs font-semibold text-slate-400">Sem observações por página.</p>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
                                 </div>
                               </div>
                             ) : null)}

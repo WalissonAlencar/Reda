@@ -1,12 +1,81 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { UploadCloud, FileText, Loader2, CheckCircle, X, FileDown } from 'lucide-react';
+import { UploadCloud, FileText, Loader2, CheckCircle, X, FileDown, Image as ImageIcon } from 'lucide-react';
+import { PDFDocument } from 'pdf-lib';
+
+const convertImageToPdf = async (imageFile: File): Promise<Blob> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const dataUrl = e.target?.result as string;
+      const img = document.createElement('img');
+      img.onload = async () => {
+        try {
+          const pdfDoc = await PDFDocument.create();
+          
+          // Use a canvas to normalize format, resolution, orientation and colors
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            throw new Error('Não foi possível obter o contexto 2D do Canvas.');
+          }
+          
+          // Max dimension to optimize PDF file size while keeping high resolution
+          const MAX_WIDTH = 1200;
+          const MAX_HEIGHT = 1600;
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > MAX_WIDTH || height > MAX_HEIGHT) {
+            const ratio = Math.min(MAX_WIDTH / width, MAX_HEIGHT / height);
+            width = Math.round(width * ratio);
+            height = Math.round(height * ratio);
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          // Fill background with white in case of transparent PNG/WebP images
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, width, height);
+          
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          // Compress canvas output to standard JPEG format
+          const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          const response = await fetch(jpegDataUrl);
+          const imageBytes = await response.arrayBuffer();
+          
+          const embeddedImage = await pdfDoc.embedJpg(imageBytes);
+          const page = pdfDoc.addPage([width, height]);
+          page.drawImage(embeddedImage, {
+            x: 0,
+            y: 0,
+            width: width,
+            height: height,
+          });
+          
+          const pdfBytes = await pdfDoc.save();
+          resolve(new Blob([pdfBytes], { type: 'application/pdf' }));
+        } catch (err) {
+          reject(err);
+        }
+      };
+      img.onerror = () => reject(new Error('Erro ao processar imagem. Certifique-se de que é um formato válido (JPEG/PNG/WEBP).'));
+      img.src = dataUrl;
+    };
+    reader.onerror = () => reject(new Error('Erro ao carregar o arquivo.'));
+    reader.readAsDataURL(imageFile);
+  });
+};
 
 export function StudentSubmitEssay() {
   const { user } = useAuth();
   const [title, setTitle] = useState('');
   const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isConverting, setIsConverting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,20 +107,49 @@ export function StudentSubmitEssay() {
     loadSettings();
   }, []);
 
+  // Cleanup preview URL on unmount
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
-      if (selectedFile.type !== 'application/pdf') {
-        setError('Por favor, selecione apenas arquivos PDF.');
+      const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+
+      if (!allowedTypes.includes(selectedFile.type)) {
+        setError('Por favor, selecione apenas arquivos PDF ou imagens (PNG, JPG, JPEG, WEBP).');
         return;
       }
-      if (selectedFile.size > 5 * 1024 * 1024) { // 5MB
-        setError('O arquivo deve ter no máximo 5MB.');
+      if (selectedFile.size > 10 * 1024 * 1024) { // 10MB
+        setError('O arquivo deve ter no máximo 10MB.');
         return;
       }
+      
       setFile(selectedFile);
       setError(null);
+
+      // Create preview if it's an image
+      if (selectedFile.type.startsWith('image/')) {
+        const url = URL.createObjectURL(selectedFile);
+        setPreviewUrl(url);
+      } else {
+        setPreviewUrl(null);
+      }
     }
+  };
+
+  const handleRemoveFile = () => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setFile(null);
+    setPreviewUrl(null);
+    setError(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -62,14 +160,29 @@ export function StudentSubmitEssay() {
       setLoading(true);
       setError(null);
 
+      let uploadFile: File = file;
+
+      // If the file is an image, convert it to PDF
+      if (file.type.startsWith('image/')) {
+        setIsConverting(true);
+        try {
+          const pdfBlob = await convertImageToPdf(file);
+          const pdfName = file.name.replace(/\.[^/.]+$/, "") + ".pdf";
+          uploadFile = new File([pdfBlob], pdfName, { type: 'application/pdf' });
+        } catch (err: any) {
+          throw new Error('Falha ao converter a imagem para PDF: ' + err.message);
+        } finally {
+          setIsConverting(false);
+        }
+      }
+
       // 1. Upload the PDF to Supabase Storage
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}_${Date.now()}.${fileExt}`;
+      const fileName = `${user.id}_${Date.now()}.pdf`;
       const filePath = `${user.id}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('essays_pdfs')
-        .upload(filePath, file);
+        .upload(filePath, uploadFile);
 
       if (uploadError) throw uploadError;
 
@@ -93,14 +206,14 @@ export function StudentSubmitEssay() {
       // Reset form on success
       setSuccess(true);
       setTitle('');
-      setFile(null);
+      handleRemoveFile();
       
       // Hide success message after 3 seconds
       setTimeout(() => setSuccess(false), 3000);
 
     } catch (err: any) {
       console.error('Erro ao enviar redação:', err);
-      setError('Ocorreu um erro ao enviar sua redação. Tente novamente.');
+      setError(err.message || 'Ocorreu um erro ao enviar sua redação. Tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -110,7 +223,7 @@ export function StudentSubmitEssay() {
     <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight text-slate-800">Enviar Redação</h1>
-        <p className="text-slate-500 mt-1">Envie sua redação em formato PDF para correção.</p>
+        <p className="text-slate-500 mt-1">Envie sua redação em formato PDF ou imagem para correção.</p>
       </div>
 
       <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
@@ -198,14 +311,14 @@ export function StudentSubmitEssay() {
 
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">
-                Arquivo PDF
+                Arquivo da Redação (PDF ou Imagem)
               </label>
               
               {!file ? (
                 <div className="relative group">
                   <input
                     type="file"
-                    accept="application/pdf"
+                    accept="application/pdf, image/png, image/jpeg, image/jpg, image/webp"
                     onChange={handleFileChange}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                     required
@@ -214,16 +327,22 @@ export function StudentSubmitEssay() {
                     <div className="w-16 h-16 bg-white rounded-full shadow-sm flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                       <UploadCloud className="text-brand-blue" size={32} />
                     </div>
-                    <p className="text-slate-800 font-bold mb-1">Clique ou arraste seu PDF aqui</p>
-                    <p className="text-slate-500 text-sm">Tamanho máximo: 5MB</p>
+                    <p className="text-slate-800 font-bold mb-1">Clique ou arraste seu PDF ou Imagem aqui</p>
+                    <p className="text-slate-500 text-sm">PDF, PNG, JPG, JPEG ou WEBP de até 10MB</p>
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center justify-between p-4 border border-brand-blue/30 bg-brand-blue/5 rounded-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border border-brand-blue/30 bg-brand-blue/5 rounded-xl gap-4">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-white rounded-lg shadow-sm">
-                      <FileText className="text-brand-orange" size={24} />
-                    </div>
+                    {previewUrl ? (
+                      <div className="relative w-16 h-16 bg-white rounded-lg overflow-hidden border border-slate-200 shrink-0 shadow-sm">
+                        <img src={previewUrl} alt="Preview da Redação" className="w-full h-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="p-2 bg-white rounded-lg shadow-sm">
+                        <FileText className="text-brand-orange" size={24} />
+                      </div>
+                    )}
                     <div>
                       <p className="font-bold text-slate-800 line-clamp-1">{file.name}</p>
                       <p className="text-xs text-slate-500">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
@@ -231,8 +350,8 @@ export function StudentSubmitEssay() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setFile(null)}
-                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    onClick={handleRemoveFile}
+                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors self-end sm:self-auto"
                   >
                     <X size={20} />
                   </button>
@@ -249,7 +368,7 @@ export function StudentSubmitEssay() {
                 {loading ? (
                   <>
                     <Loader2 size={20} className="animate-spin" />
-                    Enviando...
+                    {isConverting ? 'Processando e convertendo imagem para PDF...' : 'Enviando...'}
                   </>
                 ) : (
                   <>
