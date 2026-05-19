@@ -479,20 +479,36 @@ export function CorrectionInterface({ essay, onClose }: CorrectionInterfaceProps
          }
       }
 
-      // Fallback: also update the main essays table so old functionality doesn't break
-      await supabase.from('essays').update({ 
-        status: 'corrected',
-        score: totalScore,
-        comp_1: competencies.c1,
-        comp_2: competencies.c2,
-        comp_3: competencies.c3,
-        comp_4: competencies.c4,
-        comp_5: competencies.c5,
-        feedback: feedbackPayload,
-        teacher_id: userData.user.id,
-        corrected_at: new Date().toISOString(),
-        corrected_pdf_url: publicUrl
-      }).eq('id', essay.id);
+      // Fetch all corrections for this essay to see if we reached the required count
+      const { data: allCorrections } = await supabase
+        .from('essay_corrections')
+        .select('*')
+        .eq('essay_id', essay.id);
+
+      const corrections = allCorrections || [];
+      const requiredCorrections = essay.correction_type === 'double' ? 2 : 1;
+
+      if (corrections.length >= requiredCorrections) {
+        const avg = (field: string) => Math.round(corrections.reduce((sum: number, c: any) => sum + (c[field] || 0), 0) / corrections.length);
+
+        await supabase.from('essays').update({ 
+          status: 'corrected',
+          score: avg('score'),
+          comp_1: avg('comp_1'),
+          comp_2: avg('comp_2'),
+          comp_3: avg('comp_3'),
+          comp_4: avg('comp_4'),
+          comp_5: avg('comp_5'),
+          feedback: feedbackPayload,
+          teacher_id: userData.user.id,
+          corrected_at: new Date().toISOString(),
+          corrected_pdf_url: publicUrl
+        }).eq('id', essay.id);
+      } else {
+        await supabase.from('essays').update({ 
+          status: 'sent'
+        }).eq('id', essay.id);
+      }
       
       onClose();
     } catch (error) {

@@ -7,7 +7,8 @@ import {
   Award,
   ChevronRight,
   Target,
-  FileDown
+  FileDown,
+  Coins
 } from 'lucide-react';
 import { 
   LineChart, 
@@ -22,10 +23,12 @@ import {
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { cn } from '../lib/utils';
+import { PurchaseCreditsModal } from './PurchaseCreditsModal';
 
 export function StudentDashboard({ onNavigate }: { onNavigate?: (tab: string) => void }) {
-  const { user, userData } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const [essays, setEssays] = useState<any[]>([]);
+  const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
   const [globalAverages, setGlobalAverages] = useState({c1: 120, c2: 120, c3: 120, c4: 120, c5: 120}); // Default fallback
   const [suggestedTheme, setSuggestedTheme] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -113,44 +116,50 @@ export function StudentDashboard({ onNavigate }: { onNavigate?: (tab: string) =>
         if (inFallbackMode) {
           return {
             ...essay,
-            numCorrections: 1,
+            numCorrections: essay.status === 'corrected' ? 1 : 0,
             correctionsList: []
           };
         }
         
         const corrections = essay.essay_corrections || [];
         const numCorrections = corrections.length;
+        const requiredCorrections = essay.correction_type === 'double' ? 2 : 1;
         
-        if (numCorrections === 2) {
-           return {
-             ...essay,
-             score: Math.round((corrections[0].score + corrections[1].score) / 2),
-             comp_1: Math.round((corrections[0].comp_1 + corrections[1].comp_1) / 2),
-             comp_2: Math.round((corrections[0].comp_2 + corrections[1].comp_2) / 2),
-             comp_3: Math.round((corrections[0].comp_3 + corrections[1].comp_3) / 2),
-             comp_4: Math.round((corrections[0].comp_4 + corrections[1].comp_4) / 2),
-             comp_5: Math.round((corrections[0].comp_5 + corrections[1].comp_5) / 2),
-             numCorrections,
-             correctionsList: corrections
-           };
-        } else if (numCorrections === 1) {
-           return {
-             ...essay,
-             score: corrections[0].score,
-             comp_1: corrections[0].comp_1,
-             comp_2: corrections[0].comp_2,
-             comp_3: corrections[0].comp_3,
-             comp_4: corrections[0].comp_4,
-             comp_5: corrections[0].comp_5,
-             feedback: corrections[0].feedback,
-             numCorrections,
-             correctionsList: corrections
-           };
+        if (numCorrections >= requiredCorrections) {
+          if (requiredCorrections === 2) {
+             return {
+               ...essay,
+               status: 'corrected',
+               score: Math.round((corrections[0].score + corrections[1].score) / 2),
+               comp_1: Math.round((corrections[0].comp_1 + corrections[1].comp_1) / 2),
+               comp_2: Math.round((corrections[0].comp_2 + corrections[1].comp_2) / 2),
+               comp_3: Math.round((corrections[0].comp_3 + corrections[1].comp_3) / 2),
+               comp_4: Math.round((corrections[0].comp_4 + corrections[1].comp_4) / 2),
+               comp_5: Math.round((corrections[0].comp_5 + corrections[1].comp_5) / 2),
+               numCorrections,
+               correctionsList: corrections
+             };
+          } else {
+             return {
+               ...essay,
+               status: 'corrected',
+               score: corrections[0].score,
+               comp_1: corrections[0].comp_1,
+               comp_2: corrections[0].comp_2,
+               comp_3: corrections[0].comp_3,
+               comp_4: corrections[0].comp_4,
+               comp_5: corrections[0].comp_5,
+               feedback: corrections[0].feedback,
+               numCorrections,
+               correctionsList: corrections
+             };
+          }
         }
         return {
           ...essay,
-          numCorrections: 0,
-          correctionsList: []
+          status: 'sent',
+          numCorrections,
+          correctionsList: corrections
         };
       });
       
@@ -209,7 +218,7 @@ export function StudentDashboard({ onNavigate }: { onNavigate?: (tab: string) =>
      latestFeedback = latestEssay.correctionsList[0]?.feedback || latestFeedback;
   }
 
-  const firstName = userData?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Aluno';
+  const firstName = user?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Aluno';
   
   // Display latest essays (top 3)
   const recentEssays = [...essays].reverse().slice(0, 3);
@@ -251,7 +260,7 @@ export function StudentDashboard({ onNavigate }: { onNavigate?: (tab: string) =>
       </div>
 
       {/* Highlights */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-gradient-to-br from-brand-blue to-indigo-950 p-8 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden">
           <div className="relative z-10">
             <p className="text-indigo-200 text-sm font-medium mb-1">Média Atual</p>
@@ -270,13 +279,28 @@ export function StudentDashboard({ onNavigate }: { onNavigate?: (tab: string) =>
         </div>
 
         <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col justify-center">
+            <p className="text-slate-500 text-sm font-medium mb-2">Créditos de Redação</p>
+            <div className="flex items-baseline gap-1 mt-1">
+              <span className="text-4xl font-black text-slate-800">{user?.essay_credits ?? 0}</span>
+              <span className="text-sm font-bold text-slate-500">crédito(s)</span>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">Simples: 1 crédito | Dupla: 2 créditos</p>
+            <button 
+                onClick={() => setIsPurchaseModalOpen(true)}
+                className="flex items-center gap-1.5 text-sm font-bold text-brand-orange mt-4 hover:gap-2.5 transition-all w-fit"
+            >
+                Comprar mais <ChevronRight size={16} />
+            </button>
+        </div>
+
+        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col justify-center">
             <p className="text-slate-500 text-sm font-medium mb-4">Último Feedback</p>
             <div className="flex items-start gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-brand-orange/10 flex items-center justify-center text-brand-orange shrink-0">
                     <Award size={24} />
                 </div>
                 <div>
-                   <h4 className="font-bold text-slate-800 leading-tight line-clamp-3">
+                   <h4 className="font-bold text-slate-850 leading-tight line-clamp-3 text-sm">
                      "{latestFeedback}"
                    </h4>
                    {latestEssay && (
@@ -288,13 +312,13 @@ export function StudentDashboard({ onNavigate }: { onNavigate?: (tab: string) =>
 
         <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col justify-center">
             <p className="text-slate-500 text-sm font-medium mb-2">Próximo Desafio</p>
-            <h4 className="font-bold text-slate-800">Tema Sugerido:</h4>
-            <p className="text-slate-600 text-sm mt-1 leading-relaxed">"{suggestedTheme || 'Carregando...'}"</p>
+            <h4 className="font-bold text-slate-850 text-sm">Tema Sugerido:</h4>
+            <p className="text-slate-600 text-xs mt-1 leading-relaxed line-clamp-2">"{suggestedTheme || 'Carregando...'}"</p>
             <button 
                 onClick={() => onNavigate && onNavigate('themes_library')}
                 className="flex items-center gap-1 text-sm font-bold text-brand-orange mt-4 hover:gap-2 transition-all w-fit"
             >
-                Acessar Proposta <ChevronRight size={16} />
+                Propostas <ChevronRight size={16} />
             </button>
         </div>
       </div>
@@ -426,7 +450,7 @@ export function StudentDashboard({ onNavigate }: { onNavigate?: (tab: string) =>
                               )}>
                                   {essay.status === 'corrected' ? 'Corrigida' : 'Em correção'}
                               </span>
-                              {essay.numCorrections === 2 && essay.status === 'corrected' && (
+                              {essay.correction_type === 'double' && (
                                 <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 rounded-sm font-bold">Dupla Correção</span>
                               )}
                           </div>
@@ -446,7 +470,15 @@ export function StudentDashboard({ onNavigate }: { onNavigate?: (tab: string) =>
               ))
             )}
           </div>
+        </div>
+        <PurchaseCreditsModal 
+          isOpen={isPurchaseModalOpen} 
+          onClose={() => setIsPurchaseModalOpen(false)}
+          onSuccess={() => {
+            refreshProfile();
+            fetchEssays();
+          }}
+        />
       </div>
-    </div>
-  );
-}
+    );
+  }

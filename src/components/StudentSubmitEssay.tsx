@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
-import { UploadCloud, FileText, Loader2, CheckCircle, X, FileDown, Image as ImageIcon } from 'lucide-react';
+import { UploadCloud, FileText, Loader2, CheckCircle, X, FileDown, Image as ImageIcon, Coins } from 'lucide-react';
 import { PDFDocument } from 'pdf-lib';
+import { PurchaseCreditsModal } from './PurchaseCreditsModal';
+import { cn } from '../lib/utils';
 
 const convertImageToPdf = async (imageFile: File): Promise<Blob> => {
   return new Promise((resolve, reject) => {
@@ -71,8 +73,9 @@ const convertImageToPdf = async (imageFile: File): Promise<Blob> => {
 };
 
 export function StudentSubmitEssay() {
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const [title, setTitle] = useState('');
+  const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isConverting, setIsConverting] = useState(false);
@@ -81,6 +84,7 @@ export function StudentSubmitEssay() {
   const [error, setError] = useState<string | null>(null);
   const [themes, setThemes] = useState<any[]>([]);
   const [sheetUrl, setSheetUrl] = useState<string>('');
+  const [correctionType, setCorrectionType] = useState<'simple' | 'double'>('simple');
 
   useEffect(() => {
     async function loadThemes() {
@@ -156,6 +160,12 @@ export function StudentSubmitEssay() {
     e.preventDefault();
     if (!user || !file || !title) return;
 
+    const requiredCredits = correctionType === 'double' ? 2 : 1;
+    if ((user.essay_credits || 0) < requiredCredits) {
+      setError(`Você não possui créditos de redação suficientes. Esta operação exige ${requiredCredits} crédito(s).`);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -199,6 +209,7 @@ export function StudentSubmitEssay() {
           title: title,
           pdf_url: publicUrl,
           status: 'sent',
+          correction_type: correctionType,
         });
 
       if (dbError) throw dbError;
@@ -228,6 +239,26 @@ export function StudentSubmitEssay() {
 
       <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
         <div className="p-8">
+          {/* Credit balance display */}
+          <div className="mb-8 p-6 bg-slate-50 rounded-2xl border border-slate-200/60 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-brand-blue/10 text-brand-blue rounded-xl flex items-center justify-center shrink-0">
+                <Coins size={24} />
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Seus Créditos de Redação</p>
+                <p className="text-2xl font-black text-slate-800">{user?.essay_credits ?? 0} crédito(s) restante(s)</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsPurchaseModalOpen(true)}
+              className="px-5 py-2.5 bg-brand-orange hover:bg-brand-orange/90 text-white rounded-xl text-sm font-bold transition-all shadow-md shadow-brand-orange/10"
+            >
+              Comprar Créditos
+            </button>
+          </div>
+
           {success && (
             <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
               <CheckCircle className="text-emerald-500" size={24} />
@@ -309,6 +340,55 @@ export function StudentSubmitEssay() {
               </div>
             )}
 
+            <div className="space-y-3">
+              <label className="block text-sm font-bold text-slate-700 mb-1">
+                Modalidade de Correção
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div 
+                  onClick={() => setCorrectionType('simple')}
+                  className={cn(
+                    "p-5 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between gap-2 bg-slate-50/30",
+                    correctionType === 'simple' 
+                      ? "border-brand-blue bg-brand-blue/5 shadow-sm" 
+                      : "border-slate-200 hover:border-slate-300"
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className={cn("text-xs font-bold px-2.5 py-1 rounded-md", correctionType === 'simple' ? "bg-brand-blue/10 text-brand-blue" : "bg-slate-200 text-slate-500")}>
+                      Correção Simples
+                    </span>
+                    <span className="font-bold text-xs text-slate-500">1 crédito</span>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-800 text-sm mt-2">Um professor corrigirá sua redação</h4>
+                    <p className="text-xs text-slate-500 mt-1">Correção padrão com comentários gerais, observações por página e nota por competência.</p>
+                  </div>
+                </div>
+
+                <div 
+                  onClick={() => setCorrectionType('double')}
+                  className={cn(
+                    "p-5 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between gap-2 bg-slate-50/30",
+                    correctionType === 'double' 
+                      ? "border-purple-600 bg-purple-50/50 shadow-sm" 
+                      : "border-slate-200 hover:border-slate-300"
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className={cn("text-xs font-bold px-2.5 py-1 rounded-md", correctionType === 'double' ? "bg-purple-100 text-purple-700" : "bg-slate-200 text-slate-500")}>
+                      Correção Dupla (Dupla-Cega)
+                    </span>
+                    <span className="font-bold text-xs text-slate-500">2 créditos</span>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-800 text-sm mt-2">Dois avaliadores de forma independente</h4>
+                    <p className="text-xs text-slate-500 mt-1">Sua nota final será a média aritmética das duas notas e você verá o feedback de ambos avaliadores.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">
                 Arquivo da Redação (PDF ou Imagem)
@@ -360,27 +440,53 @@ export function StudentSubmitEssay() {
             </div>
 
             <div className="pt-4 border-t border-slate-100">
-              <button
-                type="submit"
-                disabled={loading || !file || !title}
-                className="w-full py-4 bg-brand-blue hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-brand-blue/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 size={20} className="animate-spin" />
-                    {isConverting ? 'Processando e convertendo imagem para PDF...' : 'Enviando...'}
-                  </>
-                ) : (
-                  <>
-                    <UploadCloud size={20} />
-                    Enviar Redação
-                  </>
-                )}
-              </button>
+              {(user?.essay_credits ?? 0) < (correctionType === 'double' ? 2 : 1) ? (
+                <div className="text-center space-y-3">
+                  <p className="text-sm font-bold text-red-500">
+                    Você não possui créditos suficientes para esta modalidade ({correctionType === 'double' ? 'necessita de 2 créditos' : 'necessita de 1 crédito'}).
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setIsPurchaseModalOpen(true)}
+                    className="w-full py-4 bg-brand-orange hover:bg-brand-orange/95 text-white font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2"
+                  >
+                    <Coins size={20} />
+                    Comprar Créditos
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={loading || !file || !title}
+                  className={cn(
+                    "w-full py-4 text-white font-bold rounded-xl shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2",
+                    correctionType === 'double' 
+                      ? "bg-purple-600 hover:bg-purple-700 shadow-purple-600/20" 
+                      : "bg-brand-blue hover:bg-blue-700 shadow-brand-blue/20"
+                  )}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 size={20} className="animate-spin" />
+                      {isConverting ? 'Processando e convertendo imagem para PDF...' : 'Enviando...'}
+                    </>
+                  ) : (
+                    <>
+                      <UploadCloud size={20} />
+                      Enviar Redação ({correctionType === 'double' ? 'Consumirá 2 créditos' : 'Consumirá 1 crédito'})
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </form>
         </div>
       </div>
+      <PurchaseCreditsModal 
+        isOpen={isPurchaseModalOpen}
+        onClose={() => setIsPurchaseModalOpen(false)}
+        onSuccess={() => refreshProfile()}
+      />
     </div>
   );
 }

@@ -6,6 +6,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   logout: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -57,7 +58,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: data.email,
           role: data.role as UserRole,
           avatar: data.avatar_url,
-          phone: data.phone
+          phone: data.phone,
+          essay_credits: data.essay_credits || 0,
+          school_name: data.school_name,
+          school_year: data.school_year,
+          target_course: data.target_course
         });
       }
     } catch (error) {
@@ -67,12 +72,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const refreshProfile = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      await fetchProfile(session.user.id);
+    }
+  };
+
   const logout = async () => {
     await supabase.auth.signOut();
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, logout }}>
+    <AuthContext.Provider value={{ user, loading, logout, refreshProfile }}>
       {!loading && children}
     </AuthContext.Provider>
   );

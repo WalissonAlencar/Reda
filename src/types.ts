@@ -42,6 +42,7 @@ export interface Essay {
   feedback?: string;
   pdfUrl: string;
   correctedPdfUrl?: string;
+  correction_type?: 'simple' | 'double';
 }
 
 export interface Stats {

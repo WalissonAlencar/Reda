@@ -46,14 +46,14 @@ export function StudentEssayHistory() {
       } else {
         dataToProcess = data || [];
       }
-      
-      const processed = dataToProcess.map(essay => {
+            const processed = dataToProcess.map(essay => {
         const corrections = essay.essay_corrections || [];
         const numCorrections = corrections.length;
+        const requiredCorrections = essay.correction_type === 'double' ? 2 : 1;
         
-        if (numCorrections === 0) {
-          // Backward compatibility se a nota estiver na tabela `essays`
-          if (essay.status === 'corrected' && essay.score != null) {
+        if (numCorrections < requiredCorrections) {
+          // Backward compatibility check if corrections count is 0 but it's marked as corrected in essays table
+          if (numCorrections === 0 && essay.status === 'corrected' && essay.score != null) {
             return {
                ...essay,
                numCorrections: 1,
@@ -61,9 +61,9 @@ export function StudentEssayHistory() {
                  feedback: essay.feedback,
                  corrected_pdf_url: essay.corrected_pdf_url
                }]
-            };
+             };
           }
-          return { ...essay, status: 'sent', numCorrections: 0, correctionsList: [] };
+          return { ...essay, status: 'sent', numCorrections, correctionsList: corrections };
         }
         
         const avg = (field: string) => Math.round(corrections.reduce((sum: number, c: any) => sum + (c[field] || 0), 0) / numCorrections);
@@ -80,7 +80,7 @@ export function StudentEssayHistory() {
           comp_5: avg('comp_5'),
           correctionsList: corrections
         };
-      });
+      });;
 
       setEssays(processed);
     } catch (error) {
@@ -145,11 +145,20 @@ export function StudentEssayHistory() {
                         Enviado em {new Date(essay.submitted_at || '').toLocaleDateString('pt-BR')}
                       </span>
                       {essay.status === 'sent' && (
-                        <span className="px-2 py-0.5 rounded-md bg-amber-100/50 text-amber-700 font-bold text-xs ml-2">Pendente</span>
+                        <span className="px-2 py-0.5 rounded-md bg-amber-100/50 text-amber-700 font-bold text-xs ml-2">
+                          {essay.correction_type === 'double' && essay.numCorrections === 1 
+                            ? "Aguardando 2ª Correção" 
+                            : "Pendente"}
+                        </span>
                       )}
                       {essay.status === 'corrected' && (
-                        <span className={cn("px-2 py-0.5 rounded-md font-bold text-xs ml-2", essay.numCorrections === 2 ? "bg-purple-100 text-purple-700" : "bg-emerald-100 text-emerald-700")}>
-                          {essay.numCorrections === 2 ? "Dupla Correção" : "1 Correção"}
+                        <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700 font-bold text-xs ml-2">
+                          Corrigida
+                        </span>
+                      )}
+                      {essay.correction_type === 'double' && (
+                        <span className="px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 font-bold text-xs ml-2">
+                          Dupla Correção
                         </span>
                       )}
                     </div>

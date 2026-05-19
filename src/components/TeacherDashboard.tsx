@@ -58,7 +58,7 @@ export function TeacherDashboard({ onStartCorrection }: TeacherDashboardProps) {
         dataToProcess = data || [];
       }
       
-      const relevantEssays = dataToProcess.map(e => {
+       const relevantEssays = dataToProcess.map(e => {
         // Detect if we are in fallback mode (no essay_corrections property returned from Supabase)
         const inFallbackMode = !('essay_corrections' in e);
         
@@ -75,7 +75,8 @@ export function TeacherDashboard({ onStartCorrection }: TeacherDashboardProps) {
 
         const corrections = e.essay_corrections || [];
         const myCorrection = corrections.find((c: any) => c.teacher_id === user?.id);
-        const isPendingForMe = !myCorrection && corrections.length < 2;
+        const requiredCorrections = e.correction_type === 'double' ? 2 : 1;
+        const isPendingForMe = !myCorrection && corrections.length < requiredCorrections;
         const isCorrectedByMe = !!myCorrection;
         
         return {
@@ -213,7 +214,14 @@ export function TeacherDashboard({ onStartCorrection }: TeacherDashboardProps) {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-sm text-slate-600 truncate max-w-xs block font-medium">{essay.title}</span>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm text-slate-600 truncate max-w-xs block font-medium">{essay.title}</span>
+                        {essay.correction_type === 'double' ? (
+                          <span className="w-fit text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-sm font-bold uppercase tracking-wider">Dupla Correção</span>
+                        ) : (
+                          <span className="w-fit text-[9px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-sm font-bold uppercase tracking-wider">Correção Simples</span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2 text-xs text-slate-500">
@@ -240,7 +248,8 @@ export function TeacherDashboard({ onStartCorrection }: TeacherDashboardProps) {
                             title: essay.title,
                             pdfUrl: essay.pdf_url,
                             status: 'sent',
-                            myCorrectionId: null
+                            myCorrectionId: null,
+                            correction_type: essay.correction_type
                           })}
                           className="inline-flex items-center gap-2 px-4 py-2 bg-brand-blue text-white rounded-lg text-xs font-bold hover:bg-brand-blue/90 transition-all shadow-md shadow-brand-blue/10"
                         >
@@ -253,9 +262,10 @@ export function TeacherDashboard({ onStartCorrection }: TeacherDashboardProps) {
                             id: essay.id,
                             studentName: `Candidato #${essay.id.substring(0, 8).toUpperCase()}`,
                             title: essay.title,
-                            pdfUrl: essay.pdf_url, // For revision we will fetch the specific corrected_pdf_url from essay_corrections later
+                            pdfUrl: essay.pdf_url,
                             status: 'corrected',
-                            myCorrectionId: essay.myCorrectionId
+                            myCorrectionId: essay.myCorrectionId,
+                            correction_type: essay.correction_type
                           })}
                           className="inline-flex items-center gap-2 px-4 py-2 bg-white border-2 border-emerald-500 text-emerald-600 rounded-lg text-xs font-bold hover:bg-emerald-50 transition-all shadow-sm"
                         >
