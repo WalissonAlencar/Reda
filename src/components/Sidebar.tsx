@@ -58,7 +58,7 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
             R
           </div>
           <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
-            RedPrime
+            Redarum
           </span>
         </div>
 

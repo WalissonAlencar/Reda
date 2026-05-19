@@ -49,7 +49,7 @@ function AppContent() {
            </div>
            <h2 className="text-2xl font-bold mb-3 text-slate-800">Cadastro em Análise</h2>
            <p className="text-slate-500 mb-8 leading-relaxed">
-             Seu perfil de professor foi recebido e está sob análise da coordenação da RedPrime. 
+             Seu perfil de professor foi recebido e está sob análise da coordenação da Redarum. 
              Você poderá acessar a plataforma assim que for aprovado.
            </p>
            <button 

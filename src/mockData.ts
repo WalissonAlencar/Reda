@@ -1,8 +1,8 @@
 import { Essay, User } from './types';
 
 export const MOCK_USERS: User[] = [
-  { id: '1', name: 'Walisson Admin', email: 'admin@redprime.com', role: 'ADMIN', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Admin' },
-  { id: '2', name: 'Prof. Ricardo Santos', email: 'ricardo@redprime.com', role: 'TEACHER', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Teacher1' },
+  { id: '1', name: 'Walisson Admin', email: 'admin@redarum.com', role: 'ADMIN', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Admin' },
+  { id: '2', name: 'Prof. Ricardo Santos', email: 'ricardo@redarum.com', role: 'TEACHER', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Teacher1' },
   { id: '3', name: 'João Silva', email: 'joao@estudante.com', role: 'STUDENT', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Student1' },
   { id: '4', name: 'Ana Oliveira', email: 'ana@estudante.com', role: 'STUDENT', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Student2' },
 ];

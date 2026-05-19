@@ -91,7 +91,7 @@ export function AdminSchools() {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Escolas Parceiras</h2>
-          <p className="text-slate-500">Gerencie as instituições de ensino parceiras da RedPrime.</p>
+          <p className="text-slate-500">Gerencie as instituições de ensino parceiras da Redarum.</p>
         </div>
       </div>
 
