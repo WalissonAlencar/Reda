@@ -106,7 +106,7 @@ export function LoginPage() {
         <div className="w-16 h-16 bg-brand-orange rounded-2xl flex items-center justify-center font-bold text-white italic text-3xl mb-4 shadow-xl shadow-brand-orange/20">
           R
         </div>
-        <h1 className="text-4xl font-bold text-white tracking-tight">Redatto</h1>
+        <h1 className="text-4xl font-bold text-white tracking-tight">RedPrime</h1>
         <p className="text-slate-400 mt-2 text-center text-lg max-w-xs">Plataforma Inteligente de Correção de Redações</p>
       </div>
 
@@ -412,7 +412,7 @@ export function LoginPage() {
         </div>
 
         <div className="mt-12 pt-8 border-t border-slate-100 flex justify-center">
-            <p className="text-xs text-slate-400 uppercase tracking-widest font-semibold">&copy; 2024 Redatto Education</p>
+            <p className="text-xs text-slate-400 uppercase tracking-widest font-semibold">&copy; 2024 RedPrime Education</p>
         </div>
       </div>
     </div>

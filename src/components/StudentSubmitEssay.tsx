@@ -294,7 +294,7 @@ export function StudentSubmitEssay() {
                 <div className="flex-1">
                   <h4 className="font-bold text-slate-800 leading-tight">Folha de Redação Oficial</h4>
                   <p className="text-sm text-slate-600 mt-1">
-                    Escreva sua redação na folha oficial do Redatto para garantir uma correção padronizada.
+                    Escreva sua redação na folha oficial do RedPrime para garantir uma correção padronizada.
                   </p>
                   <a 
                     href={sheetUrl}

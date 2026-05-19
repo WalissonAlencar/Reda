@@ -95,7 +95,7 @@ export function AdminDashboard() {
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard Administrativo</h1>
-          <p className="text-slate-500 mt-1">Visão geral da plataforma Redatto.</p>
+          <p className="text-slate-500 mt-1">Visão geral da plataforma RedPrime.</p>
         </div>
         <div className="flex gap-3">
           <button className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors">
