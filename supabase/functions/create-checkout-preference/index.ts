@@ -120,6 +120,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         id: preference.id,
+        purchase_id: purchase.id,
         init_point: preference.init_point,
         sandbox_init_point: preference.sandbox_init_point
       }), 

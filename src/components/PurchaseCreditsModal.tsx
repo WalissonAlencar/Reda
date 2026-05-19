@@ -28,6 +28,7 @@ export function PurchaseCreditsModal({ isOpen, onClose, onSuccess }: PurchaseCre
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const [purchaseId, setPurchaseId] = useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'approved' | 'failed' | null>(null);
+  const [paymentWindow, setPaymentWindow] = useState<Window | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -37,6 +38,7 @@ export function PurchaseCreditsModal({ isOpen, onClose, onSuccess }: PurchaseCre
       setPaymentUrl(null);
       setPurchaseId(null);
       setPaymentStatus(null);
+      setPaymentWindow(null);
       setLoading(false);
     }
   }, [isOpen]);
@@ -86,6 +88,16 @@ export function PurchaseCreditsModal({ isOpen, onClose, onSuccess }: PurchaseCre
           if (data.status === 'approved') {
             setPaymentStatus('approved');
             clearInterval(interval);
+            
+            // Close the payment tab automatically if it is open
+            if (paymentWindow) {
+              try {
+                paymentWindow.close();
+              } catch (e) {
+                console.warn('Could not close payment window:', e);
+              }
+            }
+            
             if (onSuccess) onSuccess();
           } else if (data.status && data.status !== 'pending' && data.status !== 'approved') {
             setPaymentStatus('failed');
@@ -98,7 +110,7 @@ export function PurchaseCreditsModal({ isOpen, onClose, onSuccess }: PurchaseCre
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [purchaseId, paymentStatus, onSuccess]);
+  }, [purchaseId, paymentStatus, onSuccess, paymentWindow]);
 
   if (!isOpen) return null;
 
@@ -142,28 +154,18 @@ export function PurchaseCreditsModal({ isOpen, onClose, onSuccess }: PurchaseCre
         throw new Error(errorMessage || invokeError?.message);
       }
       
-      // Save purchaseId (from preference items id/external_reference or returned in response)
-      setPurchaseId(data.id); // Our backend updates preference_id in DB, but let's query using preference_id or search external reference
-      
-      // Let's query student_purchases by preference_id or query the latest pending purchase
-      const { data: latestPending } = await supabase
-        .from('student_purchases')
-        .select('id')
-        .eq('student_id', user.id)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-        
-      if (latestPending) {
-        setPurchaseId(latestPending.id);
-      }
-
+      // Save purchaseId directly from the edge function response
+      const finalPurchaseId = data.purchase_id || data.id;
+      setPurchaseId(finalPurchaseId);
+ 
       setPaymentUrl(data.init_point);
       setPaymentStatus('pending');
       
-      // Attempt to open in a new tab
-      window.open(data.init_point, '_blank');
+      // Attempt to open in a new tab and save reference to auto-close it later
+      const win = window.open(data.init_point, '_blank');
+      if (win) {
+        setPaymentWindow(win);
+      }
     } catch (err: any) {
       console.error(err);
       alert(err.message || 'Erro ao gerar o link de pagamento.');
