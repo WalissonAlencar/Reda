@@ -3,7 +3,11 @@ import { supabase } from '../lib/supabase';
 import { BookOpen, GraduationCap, ShieldCheck, Mail, Lock, User, Loader2 } from 'lucide-react';
 import { PartnerSchool } from '../types';
 
-export function LoginPage() {
+interface LoginPageProps {
+  onBack?: () => void;
+}
+
+export function LoginPage({ onBack }: LoginPageProps) {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -111,6 +115,15 @@ export function LoginPage() {
       </div>
 
       <div className="bg-white p-8 rounded-[2rem] shadow-2xl w-full max-w-md border border-slate-100">
+        {onBack && (
+          <button 
+            type="button"
+            onClick={onBack}
+            className="mb-6 inline-flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-brand-blue transition-colors cursor-pointer"
+          >
+            &larr; Voltar para o início
+          </button>
+        )}
         <h2 className="text-2xl font-bold text-slate-800 mb-2">
           {isLogin ? 'Seja bem-vindo de volta' : 'Crie sua conta'}
         </h2>

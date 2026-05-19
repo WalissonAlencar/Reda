@@ -25,14 +25,19 @@ import { AuthProvider } from './context/AuthContext';
 import { CompleteProfile } from './components/CompleteProfile';
 import { supabase } from './lib/supabase';
 import { GraduationCap } from 'lucide-react';
+import { LandingPage } from './components/LandingPage';
 
 function AppContent() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedEssay, setSelectedEssay] = useState<Essay | null>(null);
+  const [showLogin, setShowLogin] = useState(false);
 
   if (!user) {
-    return <LoginPage />;
+    if (showLogin) {
+      return <LoginPage onBack={() => setShowLogin(false)} />;
+    }
+    return <LandingPage onNavigateToLogin={() => setShowLogin(true)} />;
   }
 
   // Intercept incomplete profiles (e.g., Google login or newly added fields)
