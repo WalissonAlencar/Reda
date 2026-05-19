@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   X, Save, CheckCircle, MessageSquare, Type, Highlighter, 
   ChevronLeft, ChevronRight, Send, Info, Loader2,
-  PenTool, Eraser, Palette, Undo, Trash2, Bold, Italic
+  PenTool, Eraser, Palette, Undo, Trash2, Bold, Italic,
+  UploadCloud, Download, FileDown
 } from 'lucide-react';
 import { Essay } from '../types';
 import { cn } from '../lib/utils';
@@ -110,6 +111,32 @@ export function CorrectionInterface({ essay, onClose }: CorrectionInterfaceProps
   });
   const [saving, setSaving] = useState(false);
   const [pdfUrlToRender, setPdfUrlToRender] = useState(essay.pdfUrl);
+  
+  // Offline upload correction states
+  const [correctionMode, setCorrectionMode] = useState<'online' | 'upload'>('online');
+  const [uploadedPdfFile, setUploadedPdfFile] = useState<File | null>(null);
+  const [offlinePdfError, setOfflinePdfError] = useState<string | null>(null);
+
+  const handleOfflineFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const selectedFile = e.target.files[0];
+      if (selectedFile.type !== 'application/pdf') {
+        setOfflinePdfError('Por favor, selecione um arquivo em formato PDF.');
+        return;
+      }
+      if (selectedFile.size > 15 * 1024 * 1024) { // 15MB
+        setOfflinePdfError('O arquivo deve ter no máximo 15MB.');
+        return;
+      }
+      setUploadedPdfFile(selectedFile);
+      setOfflinePdfError(null);
+    }
+  };
+
+  const handleRemoveOfflineFile = () => {
+    setUploadedPdfFile(null);
+    setOfflinePdfError(null);
+  };
 
   const handleSidebarNoteChange = (pageIndex: number, text: string) => {
     setSidebarNotes(prev => ({ ...prev, [pageIndex]: text }));
@@ -283,99 +310,128 @@ export function CorrectionInterface({ essay, onClose }: CorrectionInterfaceProps
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error('Not authenticated');
 
-      // 1. Fetch Original PDF
-      const pdfBytes = await fetch(pdfUrlToRender).then(res => res.arrayBuffer());
-      const originalPdfDoc = await PDFDocument.load(pdfBytes);
-      const originalPages = originalPdfDoc.getPages();
+      let publicUrl = '';
 
-      // Create a brand new PDF document to ensure 100% unrotated layout templates
-      const pdfDoc = await PDFDocument.create();
-      const embeddedPages = await pdfDoc.embedPages(originalPages);
+      if (correctionMode === 'upload') {
+        if (!uploadedPdfFile) {
+          alert('Por favor, selecione e faça o upload do PDF corrigido antes de finalizar.');
+          setSaving(false);
+          return;
+        }
 
-      // Embed Fonts for Text Tool
-      const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
-      const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-      const helveticaOblique = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
-      const helveticaBoldOblique = await pdfDoc.embedFont(StandardFonts.HelveticaBoldOblique);
+        // Upload the PDF directly
+        const fileName = `corrections/${essay.id}_${userData.user.id}_${Date.now()}.pdf`;
+        const { error: uploadError } = await supabase.storage
+          .from('essays_pdfs')
+          .upload(fileName, uploadedPdfFile, {
+            contentType: 'application/pdf',
+            upsert: true
+          });
 
-      // 2. Loop pages, normalize each, and stamp drawings + texts
-      for (let i = 0; i < numPages; i++) {
-        const originalPage = originalPages[i];
-        const embeddedPage = embeddedPages[i];
-        
-        const { width: visibleWidth, height: visibleHeight } = originalPage.getSize();
+        if (uploadError) throw uploadError;
 
-        // Create the normalized, unrotated flat page template with the exact original dimensions
-        const pdfPage = normalizePage(
-          pdfDoc,
-          originalPage,
-          embeddedPage,
-          visibleWidth,
-          visibleHeight
-        );
-        
-        // --- Stamp Drawings ---
-        const canvas = canvasRefs.current[i];
-        if (canvas) {
-          try {
-            const paths = await canvas.exportPaths();
-            if (paths.length > 0) {
-              const base64Image = await canvas.exportImage("png");
-              const imageBytes = dataURIToArrayBuffer(base64Image);
-              const pngImage = await pdfDoc.embedPng(imageBytes);
-              
-              // Stamp drawings canvas perfectly covering the normalized page area
-              pdfPage.drawImage(pngImage, {
-                x: 0,
-                y: 0,
-                width: visibleWidth,
-                height: visibleHeight,
-              });
+        const { data: publicUrlData } = supabase.storage
+          .from('essays_pdfs')
+          .getPublicUrl(fileName);
+
+        publicUrl = publicUrlData.publicUrl;
+      } else {
+        // 1. Fetch Original PDF
+        const pdfBytes = await fetch(pdfUrlToRender).then(res => res.arrayBuffer());
+        const originalPdfDoc = await PDFDocument.load(pdfBytes);
+        const originalPages = originalPdfDoc.getPages();
+
+        // Create a brand new PDF document to ensure 100% unrotated layout templates
+        const pdfDoc = await PDFDocument.create();
+        const embeddedPages = await pdfDoc.embedPages(originalPages);
+
+        // Embed Fonts for Text Tool
+        const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+        const helveticaOblique = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
+        const helveticaBoldOblique = await pdfDoc.embedFont(StandardFonts.HelveticaBoldOblique);
+
+        // 2. Loop pages, normalize each, and stamp drawings + texts
+        for (let i = 0; i < numPages; i++) {
+          const originalPage = originalPages[i];
+          const embeddedPage = embeddedPages[i];
+          
+          const { width: visibleWidth, height: visibleHeight } = originalPage.getSize();
+
+          // Create the normalized, unrotated flat page template with the exact original dimensions
+          const pdfPage = normalizePage(
+            pdfDoc,
+            originalPage,
+            embeddedPage,
+            visibleWidth,
+            visibleHeight
+          );
+          
+          // --- Stamp Drawings ---
+          const canvas = canvasRefs.current[i];
+          if (canvas) {
+            try {
+              const paths = await canvas.exportPaths();
+              if (paths.length > 0) {
+                const base64Image = await canvas.exportImage("png");
+                const imageBytes = dataURIToArrayBuffer(base64Image);
+                const pngImage = await pdfDoc.embedPng(imageBytes);
+                
+                // Stamp drawings canvas perfectly covering the normalized page area
+                pdfPage.drawImage(pngImage, {
+                  x: 0,
+                  y: 0,
+                  width: visibleWidth,
+                  height: visibleHeight,
+                });
+              }
+            } catch (canvasErr) {
+              console.error(`Erro ao exportar/gravar desenhos da página ${i + 1}:`, canvasErr);
             }
-          } catch (canvasErr) {
-            console.error(`Erro ao exportar/gravar desenhos da página ${i + 1}:`, canvasErr);
+          }
+
+          // --- Stamp Texts ---
+          const pageTexts = textAnnotations.filter(t => t.pageIndex === i);
+          if (pageTexts.length > 0) {
+            pageTexts.forEach(t => {
+              const { r, g, b } = hexToRgb(t.color);
+              let font = helvetica;
+              if (t.isBold && t.isItalic) font = helveticaBoldOblique;
+              else if (t.isBold) font = helveticaBold;
+              else if (t.isItalic) font = helveticaOblique;
+
+              const fontSize = 16; 
+              
+              pdfPage.drawText(t.text, {
+                x: t.x * visibleWidth,
+                y: visibleHeight - (t.y * visibleHeight) - fontSize, // Adjusting baseline
+                size: fontSize,
+                font: font,
+                color: rgb(r, g, b)
+              });
+            });
           }
         }
 
-        // --- Stamp Texts ---
-        const pageTexts = textAnnotations.filter(t => t.pageIndex === i);
-        if (pageTexts.length > 0) {
-          pageTexts.forEach(t => {
-            const { r, g, b } = hexToRgb(t.color);
-            let font = helvetica;
-            if (t.isBold && t.isItalic) font = helveticaBoldOblique;
-            else if (t.isBold) font = helveticaBold;
-            else if (t.isItalic) font = helveticaOblique;
-
-            const fontSize = 16; 
-            
-            pdfPage.drawText(t.text, {
-              x: t.x * visibleWidth,
-              y: visibleHeight - (t.y * visibleHeight) - fontSize, // Adjusting baseline
-              size: fontSize,
-              font: font,
-              color: rgb(r, g, b)
-            });
+        const savedPdfBytes = await pdfDoc.save();
+        
+        // 3. Upload Corrected PDF to Supabase
+        const fileName = `corrections/${essay.id}_${userData.user.id}_${Date.now()}.pdf`;
+        const { error: uploadError } = await supabase.storage
+          .from('essays_pdfs')
+          .upload(fileName, savedPdfBytes, {
+            contentType: 'application/pdf',
+            upsert: true
           });
-        }
+
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrlData } = supabase.storage
+          .from('essays_pdfs')
+          .getPublicUrl(fileName);
+
+        publicUrl = publicUrlData.publicUrl;
       }
-
-      const savedPdfBytes = await pdfDoc.save();
-      
-      // 3. Upload Corrected PDF to Supabase
-      const fileName = `corrections/${essay.id}_${userData.user.id}_${Date.now()}.pdf`;
-      const { error: uploadError } = await supabase.storage
-        .from('essays_pdfs')
-        .upload(fileName, savedPdfBytes, {
-          contentType: 'application/pdf',
-          upsert: true
-        });
-
-      if (uploadError) throw uploadError;
-
-      const { data: publicUrlData } = supabase.storage
-        .from('essays_pdfs')
-        .getPublicUrl(fileName);
 
       // Serialize sidebar notes and general feedback
       const feedbackPayload = JSON.stringify({
@@ -395,7 +451,7 @@ export function CorrectionInterface({ essay, onClose }: CorrectionInterfaceProps
              comp_4: competencies.c4,
              comp_5: competencies.c5,
              feedback: feedbackPayload,
-             corrected_pdf_url: publicUrlData.publicUrl
+             corrected_pdf_url: publicUrl
            })
            .eq('id', essay.myCorrectionId);
 
@@ -415,7 +471,7 @@ export function CorrectionInterface({ essay, onClose }: CorrectionInterfaceProps
              comp_4: competencies.c4,
              comp_5: competencies.c5,
              feedback: feedbackPayload,
-             corrected_pdf_url: publicUrlData.publicUrl
+             corrected_pdf_url: publicUrl
            });
          
          if (dbError) {
@@ -435,7 +491,7 @@ export function CorrectionInterface({ essay, onClose }: CorrectionInterfaceProps
         feedback: feedbackPayload,
         teacher_id: userData.user.id,
         corrected_at: new Date().toISOString(),
-        corrected_pdf_url: publicUrlData.publicUrl
+        corrected_pdf_url: publicUrl
       }).eq('id', essay.id);
       
       onClose();
@@ -464,79 +520,114 @@ export function CorrectionInterface({ essay, onClose }: CorrectionInterfaceProps
           </div>
         </div>
 
-        {/* Drawing Toolbar */}
-        <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
-          <button 
-            onClick={() => setActiveTool('pen')}
-            className={cn("p-2 rounded-lg transition-all", activeTool === 'pen' ? "bg-white shadow-sm text-brand-blue font-bold" : "text-slate-500 hover:bg-slate-200")}
-            title="Caneta"
+        {/* Segmented Control for Mode Switcher */}
+        <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner">
+          <button
+            onClick={() => setCorrectionMode('online')}
+            className={cn(
+              "px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2",
+              correctionMode === 'online'
+                ? "bg-white text-brand-blue shadow-sm"
+                : "text-slate-500 hover:text-slate-800"
+            )}
           >
-            <PenTool size={18} />
+            <PenTool size={14} />
+            Correção na Plataforma
           </button>
-          <button 
-            onClick={() => setActiveTool('highlighter')}
-            className={cn("p-2 rounded-lg transition-all", activeTool === 'highlighter' ? "bg-white shadow-sm text-brand-blue font-bold" : "text-slate-500 hover:bg-slate-200")}
-            title="Marca Texto"
+          <button
+            onClick={() => setCorrectionMode('upload')}
+            className={cn(
+              "px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center gap-2",
+              correctionMode === 'upload'
+                ? "bg-white text-brand-blue shadow-sm"
+                : "text-slate-500 hover:text-slate-800"
+            )}
           >
-            <Highlighter size={18} />
-          </button>
-          <button 
-            onClick={() => setActiveTool('text')}
-            className={cn("p-2 rounded-lg transition-all", activeTool === 'text' ? "bg-white shadow-sm text-brand-blue font-bold" : "text-slate-500 hover:bg-slate-200")}
-            title="Texto Livre"
-          >
-            <Type size={18} />
-          </button>
-          <button 
-            onClick={() => setActiveTool('eraser')}
-            className={cn("p-2 rounded-lg transition-all", activeTool === 'eraser' ? "bg-white shadow-sm text-brand-blue font-bold" : "text-slate-500 hover:bg-slate-200")}
-            title="Borracha"
-          >
-            <Eraser size={18} />
-          </button>
-          
-          <div className="w-px h-6 bg-slate-300 mx-1"></div>
-          
-          <div className="flex items-center gap-1 px-2">
-            {['#ef4444', '#22c55e', '#3b82f6', '#eab308', '#000000'].map(color => (
-               <button 
-                 key={color}
-                 onClick={() => { setStrokeColor(color); setActiveTool(activeTool === 'eraser' ? 'pen' : activeTool); }}
-                 className={cn("w-6 h-6 rounded-full border-2 transition-all", strokeColor === color && activeTool !== 'eraser' ? "border-slate-800 scale-110" : "border-transparent")}
-                 style={{ backgroundColor: color }}
-               />
-            ))}
-          </div>
-
-          {activeTool === 'text' && (
-            <>
-              <div className="w-px h-6 bg-slate-300 mx-1"></div>
-              <button 
-                onClick={() => setIsBold(!isBold)}
-                className={cn("p-2 rounded-lg transition-all font-serif font-bold text-sm", isBold ? "bg-white shadow-sm text-brand-blue" : "text-slate-500 hover:bg-slate-200")}
-                title="Negrito"
-              >
-                B
-              </button>
-              <button 
-                onClick={() => setIsItalic(!isItalic)}
-                className={cn("p-2 rounded-lg transition-all font-serif italic text-sm", isItalic ? "bg-white shadow-sm text-brand-blue" : "text-slate-500 hover:bg-slate-200")}
-                title="Itálico"
-              >
-                I
-              </button>
-            </>
-          )}
-
-          <div className="w-px h-6 bg-slate-300 mx-1"></div>
-          
-          <button onClick={handleUndo} className="p-2 text-slate-500 hover:bg-slate-200 rounded-lg" title="Desfazer">
-            <Undo size={18} />
-          </button>
-          <button onClick={handleClear} className="p-2 text-red-500 hover:bg-red-50 rounded-lg" title="Limpar Tudo">
-            <Trash2 size={18} />
+            <UploadCloud size={14} />
+            Correção por Upload (PDF)
           </button>
         </div>
+
+        {/* Dynamic Toolbar based on active correction mode */}
+        {correctionMode === 'online' ? (
+          <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+            <button 
+              onClick={() => setActiveTool('pen')}
+              className={cn("p-2 rounded-lg transition-all", activeTool === 'pen' ? "bg-white shadow-sm text-brand-blue font-bold" : "text-slate-500 hover:bg-slate-200")}
+              title="Caneta"
+            >
+              <PenTool size={18} />
+            </button>
+            <button 
+              onClick={() => setActiveTool('highlighter')}
+              className={cn("p-2 rounded-lg transition-all", activeTool === 'highlighter' ? "bg-white shadow-sm text-brand-blue font-bold" : "text-slate-500 hover:bg-slate-200")}
+              title="Marca Texto"
+            >
+              <Highlighter size={18} />
+            </button>
+            <button 
+              onClick={() => setActiveTool('text')}
+              className={cn("p-2 rounded-lg transition-all", activeTool === 'text' ? "bg-white shadow-sm text-brand-blue font-bold" : "text-slate-500 hover:bg-slate-200")}
+              title="Texto Livre"
+            >
+              <Type size={18} />
+            </button>
+            <button 
+              onClick={() => setActiveTool('eraser')}
+              className={cn("p-2 rounded-lg transition-all", activeTool === 'eraser' ? "bg-white shadow-sm text-brand-blue font-bold" : "text-slate-500 hover:bg-slate-200")}
+              title="Borracha"
+            >
+              <Eraser size={18} />
+            </button>
+            
+            <div className="w-px h-6 bg-slate-300 mx-1"></div>
+            
+            <div className="flex items-center gap-1 px-2">
+              {['#ef4444', '#22c55e', '#3b82f6', '#eab308', '#000000'].map(color => (
+                 <button 
+                   key={color}
+                   onClick={() => { setStrokeColor(color); setActiveTool(activeTool === 'eraser' ? 'pen' : activeTool); }}
+                   className={cn("w-6 h-6 rounded-full border-2 transition-all", strokeColor === color && activeTool !== 'eraser' ? "border-slate-800 scale-110" : "border-transparent")}
+                   style={{ backgroundColor: color }}
+                 />
+              ))}
+            </div>
+
+            {activeTool === 'text' && (
+              <>
+                <div className="w-px h-6 bg-slate-300 mx-1"></div>
+                <button 
+                  onClick={() => setIsBold(!isBold)}
+                  className={cn("p-2 rounded-lg transition-all font-serif font-bold text-sm", isBold ? "bg-white shadow-sm text-brand-blue" : "text-slate-500 hover:bg-slate-200")}
+                  title="Negrito"
+                >
+                  B
+                </button>
+                <button 
+                  onClick={() => setIsItalic(!isItalic)}
+                  className={cn("p-2 rounded-lg transition-all font-serif italic text-sm", isItalic ? "bg-white shadow-sm text-brand-blue" : "text-slate-500 hover:bg-slate-200")}
+                  title="Itálico"
+                >
+                  I
+                </button>
+              </>
+            )}
+
+            <div className="w-px h-6 bg-slate-300 mx-1"></div>
+            
+            <button onClick={handleUndo} className="p-2 text-slate-500 hover:bg-slate-200 rounded-lg" title="Desfazer">
+              <Undo size={18} />
+            </button>
+            <button onClick={handleClear} className="p-2 text-red-500 hover:bg-red-50 rounded-lg" title="Limpar Tudo">
+              <Trash2 size={18} />
+            </button>
+          </div>
+        ) : (
+          <div className="text-xs font-bold text-slate-400 bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-200 flex items-center gap-2 max-w-sm">
+            <Info size={14} className="text-brand-orange shrink-0 animate-pulse" />
+            <span className="truncate">Modo Upload PDF: Edite externamente e envie.</span>
+          </div>
+        )}
 
         <div className="flex items-center gap-6">
           <div className="text-right">
@@ -549,133 +640,239 @@ export function CorrectionInterface({ essay, onClose }: CorrectionInterfaceProps
             className="flex items-center gap-2 px-6 py-2.5 bg-brand-orange text-white rounded-xl font-bold shadow-lg shadow-brand-orange/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:hover:scale-100"
           >
             {saving ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-            {saving ? 'Salvando PDF...' : 'Finalizar Correção'}
+            {saving ? 'Salvando...' : 'Finalizar Correção'}
           </button>
         </div>
       </header>
 
       <div className="flex-1 flex overflow-hidden bg-slate-100">
-        {/* Left: PDF + Canvas Wrapper */}
-        <div className="flex-1 overflow-auto p-8 flex flex-col custom-scrollbar">
-            {pdfUrlToRender ? (
-                <Document 
-                  file={pdfUrlToRender} 
-                  onLoadSuccess={onDocumentLoadSuccess}
-                  loading={<div className="flex flex-col items-center py-20 text-slate-400"><Loader2 className="animate-spin mb-4" size={32}/> Carregando PDF...</div>}
-                >
-                  {Array.from(new Array(numPages), (el, index) => (
-                    <div 
-                      key={`page_wrapper_${index + 1}`} 
-                      className="flex flex-row items-stretch gap-6 mx-auto mb-16 select-none max-w-full justify-center"
-                    >
-                      {/* Left: PDF Page Container with Canvas Overlay */}
+        {/* Left Workspace (PDF editor or Upload zone) */}
+        {correctionMode === 'online' ? (
+          <div className="flex-1 overflow-auto p-8 flex flex-col custom-scrollbar">
+              {pdfUrlToRender ? (
+                  <Document 
+                    file={pdfUrlToRender} 
+                    onLoadSuccess={onDocumentLoadSuccess}
+                    loading={<div className="flex flex-col items-center py-20 text-slate-400"><Loader2 className="animate-spin mb-4" size={32}/> Carregando PDF...</div>}
+                  >
+                    {Array.from(new Array(numPages), (el, index) => (
                       <div 
-                        className="relative bg-white border border-slate-200 rounded-2xl shadow-2xl transition-all overflow-hidden shrink-0"
-                        style={{ 
-                          width: pageWidths[index] ? pageWidths[index] : 'auto',
-                          height: pageHeights[index] ? pageHeights[index] : 'auto'
-                        }}
-                        onClick={(e) => handlePageClick(e, index)}
+                        key={`page_wrapper_${index + 1}`} 
+                        className="flex flex-row items-stretch gap-6 mx-auto mb-16 select-none max-w-full justify-center"
                       >
-                        <div className="relative shrink-0">
-                          <Page 
-                            pageNumber={index + 1} 
-                            scale={1.1} 
-                            renderTextLayer={false} 
-                            renderAnnotationLayer={false} 
-                            onLoadSuccess={(page) => {
-                              setPageWidths(prev => ({ ...prev, [index]: page.width * 1.1 }));
-                              setPageHeights(prev => ({ ...prev, [index]: page.height * 1.1 }));
-                            }}
+                        {/* Left: PDF Page Container with Canvas Overlay */}
+                        <div 
+                          className="relative bg-white border border-slate-200 rounded-2xl shadow-2xl transition-all overflow-hidden shrink-0"
+                          style={{ 
+                            width: pageWidths[index] ? pageWidths[index] : 'auto',
+                            height: pageHeights[index] ? pageHeights[index] : 'auto'
+                          }}
+                          onClick={(e) => handlePageClick(e, index)}
+                        >
+                          <div className="relative shrink-0">
+                            <Page 
+                              pageNumber={index + 1} 
+                              scale={1.1} 
+                              renderTextLayer={false} 
+                              renderAnnotationLayer={false} 
+                              onLoadSuccess={(page) => {
+                                setPageWidths(prev => ({ ...prev, [index]: page.width * 1.1 }));
+                                setPageHeights(prev => ({ ...prev, [index]: page.height * 1.1 }));
+                              }}
+                            />
+                          </div>
+                          
+                          {pageWidths[index] && pageHeights[index] && (
+                            <>
+                              {/* Drawing Canvas */}
+                              <div className={cn("absolute inset-0", activeTool === 'text' ? "pointer-events-none" : "z-10")}>
+                                <ReactSketchCanvas 
+                                  ref={(ref) => canvasRefs.current[index] = ref}
+                                  width={`${pageWidths[index]}px`}
+                                  height={`${pageHeights[index]}px`}
+                                  strokeWidth={activeTool === 'highlighter' ? 24 : strokeWidth}
+                                  eraserWidth={20}
+                                  strokeColor={activeTool === 'highlighter' ? hexToRgba(strokeColor, 0.4) : strokeColor}
+                                  canvasColor="transparent"
+                                  style={{ border: 'none', background: 'transparent' }}
+                                />
+                              </div>
+
+                              {/* Text Annotations */}
+                              <div className={cn("absolute inset-0 z-20", activeTool === 'text' ? "pointer-events-auto" : "pointer-events-none")}>
+                                {textAnnotations.filter(t => t.pageIndex === index).map(t => (
+                                  <div 
+                                    key={t.id} 
+                                    className={cn(
+                                      "absolute font-sans pointer-events-auto cursor-pointer hover:bg-red-100/50 hover:ring-1 hover:ring-red-400 px-1 rounded transition-colors group", 
+                                      t.isBold && "font-bold", 
+                                      t.isItalic && "italic",
+                                      activeTool !== 'text' && "pointer-events-none"
+                                    )}
+                                    style={{ left: `${t.x * 100}%`, top: `${t.y * 100}%`, color: t.color, fontSize: '16px' }}
+                                    onClick={(e) => handleDeleteText(t.id, e)}
+                                    title="Clique para apagar"
+                                  >
+                                    {t.text}
+                                  </div>
+                                ))}
+                                
+                                {/* Active Input Overlay */}
+                                {activeInput?.pageIndex === index && (
+                                    <input
+                                      autoFocus
+                                      className={cn(
+                                        "absolute bg-transparent border border-dashed border-brand-blue outline-none px-1 py-0", 
+                                        isBold && "font-bold", 
+                                        isItalic && "italic"
+                                      )}
+                                      style={{ left: `${activeInput.x * 100}%`, top: `${activeInput.y * 100}%`, color: strokeColor, fontSize: '16px' }}
+                                      value={activeInput.text}
+                                      onChange={e => setActiveInput({...activeInput, text: e.target.value})}
+                                      onBlur={commitText}
+                                      onKeyDown={e => e.key === 'Enter' && commitText()}
+                                      onClick={e => e.stopPropagation()}
+                                    />
+                                )}
+                              </div>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Right: Independent Notes Column next to each page */}
+                        <div 
+                          className="w-[300px] bg-slate-50 border border-slate-200 rounded-2xl p-5 flex flex-col gap-3 shrink-0 self-stretch"
+                        >
+                          <div className="flex items-center gap-3 pb-3 border-b border-slate-200/60">
+                            <div className="bg-brand-blue/10 p-2.5 rounded-xl text-brand-blue flex items-center justify-center">
+                              <MessageSquare size={18} />
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider">Anotações do Professor</h4>
+                              <p className="text-[10px] text-slate-400 font-medium">Escreva observações para a Página {index + 1}</p>
+                            </div>
+                          </div>
+                          <textarea
+                            value={sidebarNotes[index] || ''}
+                            onChange={(e) => handleSidebarNoteChange(index, e.target.value)}
+                            placeholder="Digite aqui as observações específicas sobre esta folha da redação..."
+                            className="flex-1 w-full p-4 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-blue/15 focus:border-brand-blue transition-all resize-none shadow-sm leading-relaxed"
                           />
                         </div>
-                        
-                        {pageWidths[index] && pageHeights[index] && (
-                          <>
-                            {/* Drawing Canvas */}
-                            <div className={cn("absolute inset-0", activeTool === 'text' ? "pointer-events-none" : "z-10")}>
-                              <ReactSketchCanvas 
-                                ref={(ref) => canvasRefs.current[index] = ref}
-                                width={`${pageWidths[index]}px`}
-                                height={`${pageHeights[index]}px`}
-                                strokeWidth={activeTool === 'highlighter' ? 24 : strokeWidth}
-                                eraserWidth={20}
-                                strokeColor={activeTool === 'highlighter' ? hexToRgba(strokeColor, 0.4) : strokeColor}
-                                canvasColor="transparent"
-                                style={{ border: 'none', background: 'transparent' }}
-                              />
-                            </div>
-
-                            {/* Text Annotations */}
-                            <div className={cn("absolute inset-0 z-20", activeTool === 'text' ? "pointer-events-auto" : "pointer-events-none")}>
-                              {textAnnotations.filter(t => t.pageIndex === index).map(t => (
-                                <div 
-                                  key={t.id} 
-                                  className={cn(
-                                    "absolute font-sans pointer-events-auto cursor-pointer hover:bg-red-100/50 hover:ring-1 hover:ring-red-400 px-1 rounded transition-colors group", 
-                                    t.isBold && "font-bold", 
-                                    t.isItalic && "italic",
-                                    activeTool !== 'text' && "pointer-events-none"
-                                  )}
-                                  style={{ left: `${t.x * 100}%`, top: `${t.y * 100}%`, color: t.color, fontSize: '16px' }}
-                                  onClick={(e) => handleDeleteText(t.id, e)}
-                                  title="Clique para apagar"
-                                >
-                                  {t.text}
-                                </div>
-                              ))}
-                              
-                              {/* Active Input Overlay */}
-                              {activeInput?.pageIndex === index && (
-                                  <input
-                                    autoFocus
-                                    className={cn(
-                                      "absolute bg-transparent border border-dashed border-brand-blue outline-none px-1 py-0", 
-                                      isBold && "font-bold", 
-                                      isItalic && "italic"
-                                    )}
-                                    style={{ left: `${activeInput.x * 100}%`, top: `${activeInput.y * 100}%`, color: strokeColor, fontSize: '16px' }}
-                                    value={activeInput.text}
-                                    onChange={e => setActiveInput({...activeInput, text: e.target.value})}
-                                    onBlur={commitText}
-                                    onKeyDown={e => e.key === 'Enter' && commitText()}
-                                    onClick={e => e.stopPropagation()}
-                                  />
-                              )}
-                            </div>
-                          </>
-                        )}
                       </div>
+                    ))}
+                  </Document>
+              ) : (
+                  <div className="flex items-center justify-center h-full">
+                      <p className="text-slate-400 font-bold">Nenhum arquivo PDF atrelado a esta redação.</p>
+                  </div>
+              )}
+          </div>
+        ) : (
+          <div className="flex-1 overflow-auto p-8 flex flex-col justify-center items-center custom-scrollbar">
+            <div className="max-w-4xl w-full mx-auto space-y-8 py-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="text-center space-y-2">
+                <h3 className="text-2xl font-black text-brand-blue">Correção Externa via PDF</h3>
+                <p className="text-slate-500 max-w-lg mx-auto text-sm">
+                  Baixe o trabalho original do aluno, utilize seu aplicativo de preferência no tablet ou PC (como GoodNotes, Xodo, Adobe Reader, Notability) e envie o arquivo corrigido de volta.
+                </p>
+              </div>
 
-                      {/* Right: Independent Notes Column next to each page */}
-                      <div 
-                        className="w-[300px] bg-slate-50 border border-slate-200 rounded-2xl p-5 flex flex-col gap-3 shrink-0 self-stretch"
-                      >
-                        <div className="flex items-center gap-3 pb-3 border-b border-slate-200/60">
-                          <div className="bg-brand-blue/10 p-2.5 rounded-xl text-brand-blue flex items-center justify-center">
-                            <MessageSquare size={18} />
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider">Anotações do Professor</h4>
-                            <p className="text-[10px] text-slate-400 font-medium">Escreva observações para a Página {index + 1}</p>
-                          </div>
-                        </div>
-                        <textarea
-                          value={sidebarNotes[index] || ''}
-                          onChange={(e) => handleSidebarNoteChange(index, e.target.value)}
-                          placeholder="Digite aqui as observações específicas sobre esta folha da redação..."
-                          className="flex-1 w-full p-4 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-blue/15 focus:border-brand-blue transition-all resize-none shadow-sm leading-relaxed"
-                        />
-                      </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Step 1: Download Box */}
+                <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-xl flex flex-col justify-between hover:shadow-2xl transition-all duration-300 group">
+                  <div className="space-y-4">
+                    <div className="w-14 h-14 bg-brand-blue/10 text-brand-blue rounded-2xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                      <FileDown size={28} />
                     </div>
-                  ))}
-                </Document>
-            ) : (
-                <div className="flex items-center justify-center h-full">
-                    <p className="text-slate-400 font-bold">Nenhum arquivo PDF atrelado a esta redação.</p>
+                    <div className="space-y-2">
+                      <h4 className="font-bold text-lg text-slate-800 leading-tight">1. Baixar Redação Original</h4>
+                      <p className="text-sm text-slate-500 leading-relaxed">
+                        Faça o download do arquivo original do aluno. Você poderá abri-lo em qualquer leitor ou editor de PDF no seu computador ou tablet.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="pt-6">
+                    <a
+                      href={essay.pdfUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="w-full flex items-center justify-center gap-2 py-3.5 bg-brand-blue text-white font-bold rounded-xl shadow-lg shadow-brand-blue/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                    >
+                      <Download size={18} />
+                      Baixar PDF do Aluno
+                    </a>
+                  </div>
                 </div>
-            )}
-        </div>
+
+                {/* Step 2: Upload Box */}
+                <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-xl flex flex-col justify-between hover:shadow-2xl transition-all duration-300 group">
+                  <div className="space-y-4 flex-1 flex flex-col">
+                    <div className="w-14 h-14 bg-brand-orange/10 text-brand-orange rounded-2xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                      <UploadCloud size={28} />
+                    </div>
+                    <div className="space-y-2">
+                      <h4 className="font-bold text-lg text-slate-800 leading-tight">2. Subir PDF Corrigido</h4>
+                      <p className="text-sm text-slate-500 leading-relaxed">
+                        Após realizar suas marcações e correções no arquivo, salve-o em formato PDF e envie-o de volta utilizando o campo abaixo.
+                      </p>
+                    </div>
+
+                    <div className="pt-4 flex-1 flex flex-col justify-center">
+                      {!uploadedPdfFile ? (
+                        <div className="relative border-2 border-dashed border-slate-300 rounded-2xl p-6 bg-slate-50 hover:bg-slate-100/50 hover:border-brand-orange/50 transition-all flex flex-col items-center justify-center cursor-pointer">
+                          <input
+                            type="file"
+                            accept="application/pdf"
+                            onChange={handleOfflineFileChange}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          />
+                          <UploadCloud className="text-slate-400 mb-2 animate-bounce" size={24} />
+                          <span className="text-xs font-bold text-slate-700">Selecione o arquivo PDF corrigido</span>
+                          <span className="text-[10px] text-slate-400 mt-1">Apenas PDF de até 15MB</span>
+                        </div>
+                      ) : (
+                        <div className="border border-emerald-200 bg-emerald-50/50 p-4 rounded-2xl flex items-center justify-between gap-3 animate-in fade-in zoom-in-95 duration-300">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600 shrink-0">
+                              <CheckCircle size={20} />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-bold text-xs text-slate-800 truncate">{uploadedPdfFile.name}</p>
+                              <p className="text-[10px] text-slate-500">{(uploadedPdfFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={handleRemoveOfflineFile}
+                            className="p-1.5 hover:bg-red-50 hover:text-red-500 text-slate-400 rounded-lg transition-colors shrink-0"
+                            title="Remover arquivo"
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      )}
+                      {offlinePdfError && (
+                        <p className="text-xs text-red-500 font-medium mt-2">{offlinePdfError}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Tips */}
+              <div className="p-6 bg-amber-50/50 border border-amber-200/50 rounded-2xl space-y-2">
+                <h5 className="font-bold text-amber-800 text-xs uppercase tracking-wider flex items-center gap-1.5 font-display">
+                  <Info size={14} /> Dicas para a Correção Externa
+                </h5>
+                <ul className="text-xs text-amber-700 space-y-1.5 list-disc pl-4 font-medium leading-relaxed">
+                  <li>Você pode usar aplicativos excelentes como GoodNotes, Xodo, Notability, Adobe Acrobat Reader, Samsung Notes, etc.</li>
+                  <li>Garanta que, ao salvar/exportar o arquivo corrigido, ele esteja no formato <strong>PDF</strong>.</li>
+                  <li>Lembre-se de preencher as notas das competências e o feedback geral no painel à direita antes de clicar em "Finalizar Correção".</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Right: Correction Panel */}
         <div className="w-[400px] border-l border-slate-200 bg-white overflow-y-auto z-20 shadow-xl">
