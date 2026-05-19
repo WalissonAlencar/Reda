@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { PartnerSchool } from '../types';
-import { 
-  BookOpen, 
-  GraduationCap, 
-  Building2, 
-  Coins, 
-  ArrowRight, 
-  Check, 
-  ChevronDown, 
-  Sparkles, 
-  TrendingUp, 
-  PenTool, 
-  HelpCircle, 
+import {
+  BookOpen,
+  GraduationCap,
+  Building2,
+  Coins,
+  ArrowRight,
+  Check,
+  ChevronDown,
+  Sparkles,
+  TrendingUp,
+  PenTool,
+  HelpCircle,
   Lock,
   Layers,
   Award,
@@ -45,7 +45,7 @@ export function LandingPage({ onNavigateToLogin }: LandingPageProps) {
 
   // SEO Update
   useEffect(() => {
-    document.title = "Redarum | Correção Profissional de Redações para o ENEM";
+    document.title = "Redarum | Correção feita por gente!";
     const metaDescription = document.querySelector('meta[name="description"]');
     if (metaDescription) {
       metaDescription.setAttribute("content", "Eleve sua nota no ENEM com a Redarum. Correção rápida, detalhada e em sistema de avaliação dupla cega.");
@@ -128,11 +128,11 @@ export function LandingPage({ onNavigateToLogin }: LandingPageProps) {
     },
     {
       question: "Qual o prazo para receber a redação corrigida?",
-      answer: "Nosso prazo médio é de 24 a 48 horas úteis. Garantimos que sua redação será corrigida detalhadamente, com apontamentos específicos em cada uma das 5 competências do ENEM."
+      answer: "Nosso prazo médio é de 24 a 48 horas. Garantimos que sua redação será corrigida detalhadamente, com apontamentos específicos em cada uma das 5 competências do ENEM."
     },
     {
       question: "Quem são os corretores da plataforma?",
-      answer: "Toda a nossa equipe é composta por corretores profissionais graduados em Letras, com ampla experiência na banca oficial do ENEM e processos de treinamento anuais rígidos."
+      answer: "Toda a nossa equipe é composta por corretores profissionais graduados em Letras, com ampla experiência na banca oficial do ENEM."
     },
     {
       question: "Posso utilizar a Redarum de forma avulsa ou preciso de mensalidade?",
@@ -170,7 +170,7 @@ export function LandingPage({ onNavigateToLogin }: LandingPageProps) {
 
   return (
     <div className="bg-slate-950 text-slate-100 font-sans min-h-screen selection:bg-brand-orange selection:text-white overflow-x-hidden">
-      
+
       {/* Header / Navbar */}
       <header className="sticky top-0 z-50 backdrop-blur-md bg-slate-950/80 border-b border-slate-900/80 transition-all">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
@@ -189,7 +189,7 @@ export function LandingPage({ onNavigateToLogin }: LandingPageProps) {
           </nav>
 
           <div className="flex items-center gap-4">
-            <button 
+            <button
               id="btn_header_login"
               onClick={onNavigateToLogin}
               className="px-6 py-2.5 rounded-xl text-sm font-bold text-slate-300 hover:text-white hover:bg-slate-900 border border-slate-800 transition-all flex items-center gap-2"
@@ -197,7 +197,7 @@ export function LandingPage({ onNavigateToLogin }: LandingPageProps) {
               <Lock size={14} />
               Área Restrita
             </button>
-            <button 
+            <button
               id="btn_header_cta"
               onClick={onNavigateToLogin}
               className="px-6 py-2.5 bg-brand-orange hover:bg-orange-500 text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-brand-orange/15 hover:-translate-y-0.5"
@@ -211,23 +211,23 @@ export function LandingPage({ onNavigateToLogin }: LandingPageProps) {
       {/* Hero Section */}
       <section className="relative pt-16 pb-24 md:py-32 overflow-hidden bg-[radial-gradient(circle_at_30%_20%,_rgba(30,58,138,0.15),_transparent_40%),_radial-gradient(circle_at_70%_60%,_rgba(251,146,60,0.06),_transparent_45%)]">
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-12 gap-16 items-center">
-          
+
           <div className="lg:col-span-6 space-y-8 text-center lg:text-left">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-brand-orange text-xs font-bold uppercase tracking-wider">
               <Sparkles size={12} />
               Sistema Dupla Cega ENEM
             </div>
-            
+
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-white leading-tight font-display tracking-tight">
               A redação nota <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-orange to-amber-400">1000</span> ao seu alcance.
             </h1>
-            
+
             <p className="text-lg text-slate-400 leading-relaxed max-w-xl mx-auto lg:mx-0">
-              Escreva suas redações, envie de forma manuscrita e receba análises aprofundadas com foco total nos critérios do ENEM. Avaliação rigorosa por corretores credenciados.
+              Escreva suas redações, envie de forma manuscrita e receba análises aprofundadas com foco total nos critérios do ENEM. Correção feita por pessoas!.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
-              <button 
+              <button
                 id="btn_hero_primary"
                 onClick={onNavigateToLogin}
                 className="w-full sm:w-auto px-8 py-4 bg-brand-orange hover:bg-orange-500 text-white font-bold rounded-xl shadow-xl shadow-brand-orange/20 transition-all flex items-center justify-center gap-2 hover:-translate-y-0.5"
@@ -235,8 +235,8 @@ export function LandingPage({ onNavigateToLogin }: LandingPageProps) {
                 Cadastrar Grátis
                 <ArrowRight size={18} />
               </button>
-              <a 
-                href="#plans" 
+              <a
+                href="#plans"
                 className="w-full sm:w-auto px-8 py-4 text-center border border-slate-800 bg-slate-900/50 hover:bg-slate-900 text-white font-bold rounded-xl transition-all hover:-translate-y-0.5"
               >
                 Ver Planos
@@ -263,7 +263,7 @@ export function LandingPage({ onNavigateToLogin }: LandingPageProps) {
           {/* Interactive CSS Demo Essay Mockup */}
           <div className="lg:col-span-6 relative flex justify-center animate-in fade-in zoom-in-95 duration-500">
             <div className="relative w-full max-w-lg aspect-[4/3] bg-slate-900/60 rounded-3xl border border-slate-800 p-6 shadow-2xl backdrop-blur-sm overflow-hidden flex flex-col gap-4">
-              
+
               {/* Fake Interface Headers */}
               <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                 <div className="flex items-center gap-2">
@@ -281,7 +281,7 @@ export function LandingPage({ onNavigateToLogin }: LandingPageProps) {
 
               {/* Essay Body Simulation */}
               <div className="relative flex-1 bg-white rounded-2xl p-6 text-slate-800 overflow-hidden flex flex-col justify-between">
-                
+
                 {/* Fake Handwriting Lines */}
                 <div className="space-y-4">
                   <div className="h-4 bg-slate-100 rounded w-full flex items-center justify-between px-2 text-[10px] text-slate-400 select-none">
@@ -290,7 +290,7 @@ export function LandingPage({ onNavigateToLogin }: LandingPageProps) {
                   <div className="relative">
                     <div className="h-4 bg-slate-100 rounded w-[95%]"></div>
                     {/* Highlight Marker 1 */}
-                    <span 
+                    <span
                       onMouseEnter={() => setActiveHighlight(1)}
                       onMouseLeave={() => setActiveHighlight(null)}
                       className={`absolute right-4 -top-0.5 px-2 py-0.5 rounded text-[8px] font-bold text-white cursor-pointer select-none transition-all duration-300 ${activeHighlight === 1 ? 'bg-red-500 scale-110 shadow-lg' : 'bg-red-500/70 hover:bg-red-500'}`}
@@ -302,7 +302,7 @@ export function LandingPage({ onNavigateToLogin }: LandingPageProps) {
                   <div className="relative">
                     <div className="h-4 bg-slate-100 rounded w-full"></div>
                     {/* Highlight Marker 2 */}
-                    <span 
+                    <span
                       onMouseEnter={() => setActiveHighlight(2)}
                       onMouseLeave={() => setActiveHighlight(null)}
                       className={`absolute left-[30%] -top-0.5 px-2 py-0.5 rounded text-[8px] font-bold text-white cursor-pointer select-none transition-all duration-300 ${activeHighlight === 2 ? 'bg-emerald-500 scale-110 shadow-lg' : 'bg-emerald-500/70 hover:bg-emerald-500'}`}
@@ -315,7 +315,7 @@ export function LandingPage({ onNavigateToLogin }: LandingPageProps) {
                   <div className="relative">
                     <div className="h-4 bg-slate-100 rounded w-[96%]"></div>
                     {/* Highlight Marker 3 */}
-                    <span 
+                    <span
                       onMouseEnter={() => setActiveHighlight(3)}
                       onMouseLeave={() => setActiveHighlight(null)}
                       className={`absolute right-[20%] -top-0.5 px-2 py-0.5 rounded text-[8px] font-bold text-white cursor-pointer select-none transition-all duration-300 ${activeHighlight === 3 ? 'bg-blue-500 scale-110 shadow-lg' : 'bg-blue-500/70 hover:bg-blue-500'}`}
@@ -341,10 +341,9 @@ export function LandingPage({ onNavigateToLogin }: LandingPageProps) {
                 {activeHighlight !== null && (
                   <div className="absolute top-[30%] left-[20%] right-[20%] bg-slate-900 text-white rounded-xl p-4 shadow-xl border border-slate-800 animate-in fade-in slide-in-from-bottom-2 duration-200">
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                        activeHighlight === 1 ? 'bg-red-500/10 text-red-400' :
-                        activeHighlight === 2 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-blue-500/10 text-blue-400'
-                      }`}>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${activeHighlight === 1 ? 'bg-red-500/10 text-red-400' :
+                          activeHighlight === 2 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-blue-500/10 text-blue-400'
+                        }`}>
                         {highlights.find(h => h.id === activeHighlight)?.title}
                       </span>
                       <span className="text-[9px] text-slate-400 font-medium">Feedback do Corretor</span>
@@ -372,7 +371,7 @@ export function LandingPage({ onNavigateToLogin }: LandingPageProps) {
           <p className="text-center text-xs font-bold text-slate-500 uppercase tracking-widest mb-6">
             Instituições e Escolas Parceiras que Confiam no Nosso Método
           </p>
-          
+
           {loadingSchools ? (
             <div className="h-10 flex items-center justify-center">
               <span className="text-xs text-slate-500">Buscando escolas parceiras...</span>
@@ -478,13 +477,12 @@ export function LandingPage({ onNavigateToLogin }: LandingPageProps) {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch max-w-6xl mx-auto">
               {packages.map((pkg) => (
-                <div 
-                  key={pkg.id} 
-                  className={`relative bg-slate-900/50 border rounded-3xl p-8 flex flex-col justify-between transition-all hover:scale-[1.02] ${
-                    pkg.popular 
-                      ? 'border-brand-orange shadow-xl shadow-brand-orange/5 bg-slate-900' 
+                <div
+                  key={pkg.id}
+                  className={`relative bg-slate-900/50 border rounded-3xl p-8 flex flex-col justify-between transition-all hover:scale-[1.02] ${pkg.popular
+                      ? 'border-brand-orange shadow-xl shadow-brand-orange/5 bg-slate-900'
                       : 'border-slate-900 hover:border-slate-800'
-                  }`}
+                    }`}
                 >
                   {pkg.popular && (
                     <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 bg-brand-orange text-white text-[10px] font-black uppercase tracking-wider rounded-full shadow-lg shadow-brand-orange/20">
@@ -536,14 +534,13 @@ export function LandingPage({ onNavigateToLogin }: LandingPageProps) {
                     </ul>
                   </div>
 
-                  <button 
+                  <button
                     id={`btn_plan_buy_${pkg.id}`}
                     onClick={onNavigateToLogin}
-                    className={`w-full py-4 mt-8 font-bold rounded-xl text-sm transition-all shadow-md flex items-center justify-center gap-2 ${
-                      pkg.popular 
-                        ? 'bg-brand-orange hover:bg-orange-500 text-white shadow-brand-orange/10' 
+                    className={`w-full py-4 mt-8 font-bold rounded-xl text-sm transition-all shadow-md flex items-center justify-center gap-2 ${pkg.popular
+                        ? 'bg-brand-orange hover:bg-orange-500 text-white shadow-brand-orange/10'
                         : 'bg-slate-800 hover:bg-slate-700 text-white'
-                    }`}
+                      }`}
                   >
                     Adquirir Créditos
                     <ArrowRight size={14} />
@@ -570,8 +567,8 @@ export function LandingPage({ onNavigateToLogin }: LandingPageProps) {
           {faqs.map((faq, index) => {
             const isOpen = activeFaq === index;
             return (
-              <div 
-                key={index} 
+              <div
+                key={index}
                 className="bg-slate-900/30 border border-slate-900 rounded-2xl overflow-hidden transition-colors duration-200"
               >
                 <button
@@ -580,12 +577,12 @@ export function LandingPage({ onNavigateToLogin }: LandingPageProps) {
                   className="w-full p-6 text-left flex justify-between items-center gap-4 hover:bg-slate-900/10"
                 >
                   <span className="font-bold text-white text-base">{faq.question}</span>
-                  <ChevronDown 
-                    size={20} 
-                    className={`text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180 text-brand-orange' : ''}`} 
+                  <ChevronDown
+                    size={20}
+                    className={`text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180 text-brand-orange' : ''}`}
                   />
                 </button>
-                
+
                 {isOpen && (
                   <div className="px-6 pb-6 text-sm text-slate-400 leading-relaxed border-t border-slate-900 pt-4 animate-in fade-in duration-200">
                     {faq.answer}
@@ -608,8 +605,8 @@ export function LandingPage({ onNavigateToLogin }: LandingPageProps) {
               Crie sua conta agora mesmo em menos de 2 minutos e comece a enviar suas redações para correção profissional.
             </p>
           </div>
-          
-          <button 
+
+          <button
             id="btn_cta_final"
             onClick={onNavigateToLogin}
             className="px-8 py-4 bg-brand-orange hover:bg-orange-500 text-white font-bold rounded-xl transition-all shadow-xl shadow-brand-orange/20 whitespace-nowrap hover:-translate-y-0.5"
@@ -630,7 +627,7 @@ export function LandingPage({ onNavigateToLogin }: LandingPageProps) {
           </div>
 
           <p>&copy; {new Date().getFullYear()} Redarum. Todos os direitos reservados.</p>
-          
+
           <div className="flex gap-6">
             <a href="#" className="hover:text-slate-300 transition-colors">Termos de Uso</a>
             <a href="#" className="hover:text-slate-300 transition-colors">Políticas de Privacidade</a>
