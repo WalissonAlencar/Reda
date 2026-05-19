@@ -73,6 +73,7 @@ serve(async (req) => {
         .update({
           status: 'approved',
           payment_id: String(paymentId),
+          payment_method: payment.payment_method_id || null,
           updated_at: new Date().toISOString()
         })
         .eq('id', purchaseId);
@@ -94,7 +95,8 @@ serve(async (req) => {
       const newCredits = (user.essay_credits || 0) + purchase.credits_added;
       const { error: updateUserError } = await adminSupabase
         .from('users')
-        .update({ essay_credits: newCredits })\n        .eq('id', purchase.student_id);
+        .update({ essay_credits: newCredits })
+        .eq('id', purchase.student_id);
 
       if (updateUserError) {
         throw new Error(`Failed to update user credits: ${updateUserError.message}`);
@@ -107,6 +109,7 @@ serve(async (req) => {
         .update({
           status: paymentStatus,
           payment_id: String(paymentId),
+          payment_method: payment.payment_method_id || null,
           updated_at: new Date().toISOString()
         })
         .eq('id', purchaseId);

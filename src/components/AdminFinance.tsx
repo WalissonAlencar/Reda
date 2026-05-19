@@ -197,12 +197,15 @@ export function AdminFinance() {
 
     try {
       setApprovingId(purchaseId);
+      const manualPaymentId = `manual_${Date.now()}`;
       
       // 1. Update purchase status
       const { error: updErr } = await supabase
         .from('student_purchases')
         .update({ 
           status: 'approved',
+          payment_method: 'manual',
+          payment_id: manualPaymentId,
           updated_at: new Date().toISOString()
         })
         .eq('id', purchaseId);
@@ -707,12 +710,13 @@ export function AdminFinance() {
           {/* Transactions Table */}
           <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-100 text-sm font-bold text-slate-500 uppercase tracking-wider">
                     <th className="p-6">Aluno</th>
                     <th className="p-6 text-center">Créditos</th>
                     <th className="p-6 text-right">Valor</th>
+                    <th className="p-6 text-center">Método / Transação</th>
                     <th className="p-6 text-center">Status</th>
                     <th className="p-6 text-center">Data</th>
                     <th className="p-6 text-right">Ações</th>
@@ -734,6 +738,33 @@ export function AdminFinance() {
                         </td>
                         <td className="p-6 text-right font-black text-slate-800">
                           R$ {tx.amount.toFixed(2)}
+                        </td>
+                        <td className="p-6 text-center">
+                          {tx.payment_id ? (
+                            <div className="flex flex-col items-center gap-1">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase border tracking-wider
+                                ${tx.payment_method === 'manual'
+                                  ? 'bg-blue-50 border-blue-100 text-blue-700'
+                                  : tx.payment_method === 'pix'
+                                  ? 'bg-teal-50 border-teal-100 text-teal-700'
+                                  : tx.payment_method === 'ticket' || tx.payment_method === 'bolbradesco'
+                                  ? 'bg-amber-50 border-amber-100 text-amber-700'
+                                  : 'bg-indigo-50 border-indigo-100 text-indigo-700'
+                                }
+                              `}>
+                                {tx.payment_method === 'manual' && 'Manual'}
+                                {tx.payment_method === 'pix' && 'Pix'}
+                                {(tx.payment_method === 'ticket' || tx.payment_method === 'bolbradesco') && 'Boleto'}
+                                {tx.payment_method && tx.payment_method !== 'manual' && tx.payment_method !== 'pix' && tx.payment_method !== 'ticket' && tx.payment_method !== 'bolbradesco' && tx.payment_method}
+                                {!tx.payment_method && 'Mercado Pago'}
+                              </span>
+                              <span className="text-[10px] font-mono text-slate-400 select-all" title="ID da Transação">
+                                {tx.payment_id}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400 italic font-medium">-</span>
+                          )}
                         </td>
                         <td className="p-6 text-center">
                           <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border
