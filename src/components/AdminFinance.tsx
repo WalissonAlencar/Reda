@@ -11,7 +11,10 @@ import {
   Save, 
   X, 
   Coins, 
-  Loader2 
+  Loader2,
+  Search,
+  CreditCard,
+  AlertTriangle
 } from 'lucide-react';
 
 interface TeacherFinance {
@@ -40,8 +43,23 @@ interface CreditPackage {
   discount: string | null;
 }
 
+interface StudentPurchase {
+  id: string;
+  student_id: string;
+  amount: number;
+  credits_added: number;
+  status: string;
+  preference_id: string | null;
+  payment_id: string | null;
+  created_at: string;
+  student?: {
+    name: string;
+    email: string;
+  };
+}
+
 export function AdminFinance() {
-  const [activeSubTab, setActiveSubTab] = useState<'teachers' | 'config'>('teachers');
+  const [activeSubTab, setActiveSubTab] = useState<'teachers' | 'transactions' | 'config'>('teachers');
   
   // Teacher Finance States
   const [teachers, setTeachers] = useState<TeacherFinance[]>([]);
@@ -66,9 +84,18 @@ export function AdminFinance() {
   const [pkgDiscount, setPkgDiscount] = useState('');
   const [savingPackage, setSavingPackage] = useState(false);
 
+  // Student Purchases States
+  const [transactions, setTransactions] = useState<StudentPurchase[]>([]);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'approved' | 'pending' | 'failed'>('all');
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+
   useEffect(() => {
     if (activeSubTab === 'teachers') {
       loadFinanceData();
+    } else if (activeSubTab === 'transactions') {
+      loadTransactionsData();
     } else {
       loadConfigData();
     }
@@ -132,6 +159,81 @@ export function AdminFinance() {
       console.error("Erro ao carregar dados financeiros", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadTransactionsData = async () => {
+    try {
+      setLoadingTransactions(true);
+      const { data, error } = await supabase
+        .from('student_purchases')
+        .select(`
+          *,
+          student:users!student_id (
+            name,
+            email
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setTransactions(data || []);
+    } catch (err) {
+      console.error("Erro ao carregar transações", err);
+    } finally {
+      setLoadingTransactions(false);
+    }
+  };
+
+  const handleApproveManual = async (
+    purchaseId: string, 
+    studentId: string, 
+    credits: number, 
+    studentName: string
+  ) => {
+    if (!window.confirm(`Tem certeza que deseja aprovar MANUALMENTE esta transação? Isso adicionará ${credits} créditos à conta do aluno "${studentName}".`)) {
+      return;
+    }
+
+    try {
+      setApprovingId(purchaseId);
+      
+      // 1. Update purchase status
+      const { error: updErr } = await supabase
+        .from('student_purchases')
+        .update({ 
+          status: 'approved',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', purchaseId);
+
+      if (updErr) throw updErr;
+
+      // 2. Fetch user's current credits
+      const { data: userProfile, error: usrErr } = await supabase
+        .from('users')
+        .select('essay_credits')
+        .eq('id', studentId)
+        .single();
+
+      if (usrErr) throw usrErr;
+
+      // 3. Update user credits
+      const currentCredits = userProfile?.essay_credits || 0;
+      const { error: creditsErr } = await supabase
+        .from('users')
+        .update({ essay_credits: currentCredits + credits })
+        .eq('id', studentId);
+
+      if (creditsErr) throw creditsErr;
+
+      alert(`Transação aprovada com sucesso! ${credits} créditos foram adicionados para ${studentName}.`);
+      await loadTransactionsData();
+    } catch (err) {
+      console.error("Erro ao aprovar transação manualmente:", err);
+      alert("Erro ao aprovar a transação.");
+    } finally {
+      setApprovingId(null);
     }
   };
 
@@ -328,6 +430,20 @@ export function AdminFinance() {
   const totalOwed = teachers.reduce((acc, t) => acc + (t.unpaidCorrections * fee), 0);
   const totalCorrectionsPending = teachers.reduce((acc, t) => acc + t.unpaidCorrections, 0);
 
+  // Transaction calculations
+  const approvedTransactions = transactions.filter(t => t.status === 'approved');
+  const totalRevenue = approvedTransactions.reduce((acc, t) => acc + Number(t.amount), 0);
+  const totalCreditsSold = approvedTransactions.reduce((acc, t) => acc + Number(t.credits_added), 0);
+  const pendingTransactionsCount = transactions.filter(t => t.status === 'pending').length;
+
+  const filteredTransactions = transactions.filter(tx => {
+    const nameMatch = tx.student?.name?.toLowerCase().includes(searchQuery.toLowerCase()) || false;
+    const emailMatch = tx.student?.email?.toLowerCase().includes(searchQuery.toLowerCase()) || false;
+    const matchesSearch = searchQuery === '' || nameMatch || emailMatch;
+    const matchesStatus = statusFilter === 'all' || tx.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
@@ -351,6 +467,17 @@ export function AdminFinance() {
           `}
         >
           Ciclos dos Professores
+        </button>
+        <button
+          onClick={() => setActiveSubTab('transactions')}
+          className={`pb-4 px-6 font-bold text-sm transition-all border-b-2
+            ${activeSubTab === 'transactions' 
+              ? 'border-brand-blue text-brand-blue' 
+              : 'border-transparent text-slate-400 hover:text-slate-600'
+            }
+          `}
+        >
+          Transações dos Alunos
         </button>
         <button
           onClick={() => setActiveSubTab('config')}
@@ -497,6 +624,162 @@ export function AdminFinance() {
                 ))}
               </div>
             )}
+          </div>
+        </>
+      )}
+
+      {/* Sub-Tab: Student Transactions */}
+      {loadingTransactions && activeSubTab === 'transactions' && (
+        <div className="flex items-center justify-center h-64">
+          <div className="w-8 h-8 border-4 border-brand-orange border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      )}
+
+      {!loadingTransactions && activeSubTab === 'transactions' && (
+        <>
+          {/* Overview Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-5">
+              <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100">
+                <DollarSign size={28} />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-500 mb-1">Receita Total Aprovada</p>
+                <h3 className="text-3xl font-black text-slate-800">R$ {totalRevenue.toFixed(2)}</h3>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-5">
+              <div className="w-14 h-14 rounded-2xl bg-brand-orange/10 text-brand-orange flex items-center justify-center shrink-0 border border-brand-orange/20">
+                <Coins size={28} />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-500 mb-1">Créditos Vendidos</p>
+                <h3 className="text-3xl font-black text-slate-800">{totalCreditsSold}</h3>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-5">
+              <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center shrink-0 border border-amber-100">
+                <AlertCircle size={28} />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-500 mb-1">Transações Pendentes</p>
+                <h3 className="text-3xl font-black text-slate-800">{pendingTransactionsCount}</h3>
+              </div>
+            </div>
+          </div>
+
+          {/* Search and Filters */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-between items-center bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+            <div className="relative w-full sm:max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input
+                type="text"
+                placeholder="Buscar por aluno ou email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-800 focus:outline-none focus:border-brand-blue focus:bg-white transition-all text-sm"
+              />
+            </div>
+            
+            <div className="flex gap-2 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+              {(['all', 'approved', 'pending', 'failed'] as const).map((status) => (
+                <button
+                  key={status}
+                  onClick={() => setStatusFilter(status)}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border shrink-0
+                    ${statusFilter === status
+                      ? 'bg-brand-blue border-brand-blue text-white shadow-md shadow-brand-blue/10'
+                      : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
+                    }
+                  `}
+                >
+                  {status === 'all' && 'Todos'}
+                  {status === 'approved' && 'Aprovados'}
+                  {status === 'pending' && 'Pendentes'}
+                  {status === 'failed' && 'Falhados'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Transactions Table */}
+          <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-100 text-sm font-bold text-slate-500 uppercase tracking-wider">
+                    <th className="p-6">Aluno</th>
+                    <th className="p-6 text-center">Créditos</th>
+                    <th className="p-6 text-right">Valor</th>
+                    <th className="p-6 text-center">Status</th>
+                    <th className="p-6 text-center">Data</th>
+                    <th className="p-6 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredTransactions.map((tx) => {
+                    const isApproved = tx.status === 'approved';
+                    const isPending = tx.status === 'pending';
+                    
+                    return (
+                      <tr key={tx.id} className="hover:bg-slate-50/50 transition-colors text-sm">
+                        <td className="p-6">
+                          <p className="font-bold text-slate-800">{tx.student?.name || 'Aluno Excluído'}</p>
+                          <p className="text-xs text-slate-500">{tx.student?.email || '-'}</p>
+                        </td>
+                        <td className="p-6 text-center font-bold text-slate-700">
+                          {tx.credits_added}
+                        </td>
+                        <td className="p-6 text-right font-black text-slate-800">
+                          R$ {tx.amount.toFixed(2)}
+                        </td>
+                        <td className="p-6 text-center">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border
+                            ${isApproved
+                              ? 'bg-emerald-50 border-emerald-100 text-emerald-700'
+                              : isPending
+                              ? 'bg-amber-50 border-amber-100 text-amber-700'
+                              : 'bg-red-50 border-red-100 text-red-700'
+                            }
+                          `}>
+                            {tx.status === 'approved' ? 'Aprovado' : tx.status === 'pending' ? 'Pendente' : tx.status}
+                          </span>
+                        </td>
+                        <td className="p-6 text-center text-slate-500">
+                          {new Date(tx.created_at).toLocaleString('pt-BR')}
+                        </td>
+                        <td className="p-6 text-right">
+                          {isPending && (
+                            <button
+                              onClick={() => handleApproveManual(tx.id, tx.student_id, tx.credits_added, tx.student?.name || '')}
+                              disabled={approvingId === tx.id}
+                              className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-xs font-bold transition-all shadow-md shadow-emerald-500/10 inline-flex items-center gap-1.5 animate-in fade-in duration-200"
+                            >
+                              {approvingId === tx.id ? (
+                                <Loader2 className="animate-spin" size={12} />
+                              ) : (
+                                <CheckCircle2 size={12} />
+                              )}
+                              Aprovar Manual
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  
+                  {filteredTransactions.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="p-12 text-center text-slate-500">
+                        Nenhuma transação encontrada.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </>
       )}
