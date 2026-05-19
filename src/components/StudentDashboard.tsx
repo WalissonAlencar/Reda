@@ -36,7 +36,8 @@ export function StudentDashboard({ onNavigate }: { onNavigate?: (tab: string) =>
 
   useEffect(() => {
     if (user?.id) {
-      fetchEssays();
+      const isSilent = essays.length > 0;
+      fetchEssays(isSilent);
       fetchGlobalStats();
       fetchSuggestedTheme();
       fetchSettings();
@@ -85,9 +86,9 @@ export function StudentDashboard({ onNavigate }: { onNavigate?: (tab: string) =>
     }
   };
 
-  const fetchEssays = async () => {
+  const fetchEssays = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       let dataToProcess: any[] = [];
       const { data, error } = await supabase
         .from('essays')
@@ -476,7 +477,7 @@ export function StudentDashboard({ onNavigate }: { onNavigate?: (tab: string) =>
           onClose={() => setIsPurchaseModalOpen(false)}
           onSuccess={() => {
             refreshProfile();
-            fetchEssays();
+            fetchEssays(true);
           }}
         />
       </div>
