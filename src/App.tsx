@@ -26,6 +26,7 @@ import { CompleteProfile } from './components/CompleteProfile';
 import { supabase } from './lib/supabase';
 import { GraduationCap } from 'lucide-react';
 import { LandingPage } from './components/LandingPage';
+import { TiradentesLandingPage } from './components/TiradentesLandingPage';
 
 function AppContent() {
   const { user } = useAuth();
@@ -33,10 +34,18 @@ function AppContent() {
   const [selectedEssay, setSelectedEssay] = useState<Essay | null>(null);
   const [showLogin, setShowLogin] = useState(false);
 
+  // Check if current path matches the Tiradentes tenant
+  const isTiradentes = window.location.pathname.startsWith('/tiradentes');
+
   if (!user) {
     if (showLogin) {
       return <LoginPage onBack={() => setShowLogin(false)} />;
     }
+    
+    if (isTiradentes) {
+      return <TiradentesLandingPage onNavigateToLogin={() => setShowLogin(true)} />;
+    }
+    
     return <LandingPage onNavigateToLogin={() => setShowLogin(true)} />;
   }
 
