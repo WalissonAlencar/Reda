@@ -820,9 +820,11 @@ export function CorrectionInterface({ essay, onClose }: CorrectionInterfaceProps
 
                               return (
                                 <div key={noteIndex} className={cn("p-3 rounded-xl border shadow-sm relative group transition-all", colorClass)}>
-                                  <div className="flex gap-2">
-                                    <span className="text-xs font-black text-slate-400 mt-0.5 shrink-0 select-none">{noteIndex + 1}.</span>
-                                    <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap pr-5">{note}</p>
+                                  <div className="flex gap-3 items-start">
+                                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-slate-800 text-white shrink-0 shadow-sm mt-0.5">
+                                      <span className="text-xs font-black select-none">{noteIndex + 1}</span>
+                                    </div>
+                                    <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap pr-5 pt-0.5">{note}</p>
                                   </div>
                                   <button 
                                     onClick={() => handleRemoveSidebarNote(index, noteIndex)}
