@@ -101,14 +101,25 @@ export function CorrectionInterface({ essay, onClose }: CorrectionInterfaceProps
       return essay.feedback || '';
     }
   });
-  const [sidebarNotes, setSidebarNotes] = useState<Record<number, string>>(() => {
+  const [sidebarNotes, setSidebarNotes] = useState<Record<number, string[]>>(() => {
     try {
       const parsed = JSON.parse(essay.feedback || '');
-      return parsed.pageNotes || {};
+      const notes = parsed.pageNotes || {};
+      const normalizedNotes: Record<number, string[]> = {};
+      Object.keys(notes).forEach(k => {
+        const key = parseInt(k, 10);
+        if (typeof notes[k] === 'string') {
+          if (notes[k].trim() !== '') normalizedNotes[key] = [notes[k]];
+        } else if (Array.isArray(notes[k])) {
+          normalizedNotes[key] = notes[k];
+        }
+      });
+      return normalizedNotes;
     } catch (e) {
       return {};
     }
   });
+  const [draftNotes, setDraftNotes] = useState<Record<number, string>>({});
   const [saving, setSaving] = useState(false);
   const [pdfUrlToRender, setPdfUrlToRender] = useState(essay.pdfUrl);
   
@@ -138,8 +149,24 @@ export function CorrectionInterface({ essay, onClose }: CorrectionInterfaceProps
     setOfflinePdfError(null);
   };
 
-  const handleSidebarNoteChange = (pageIndex: number, text: string) => {
-    setSidebarNotes(prev => ({ ...prev, [pageIndex]: text }));
+  const handleAddSidebarNote = (pageIndex: number) => {
+    const text = draftNotes[pageIndex]?.trim();
+    if (!text) return;
+    
+    setSidebarNotes(prev => ({
+      ...prev,
+      [pageIndex]: [...(prev[pageIndex] || []), text]
+    }));
+    
+    setDraftNotes(prev => ({ ...prev, [pageIndex]: '' }));
+  };
+
+  const handleRemoveSidebarNote = (pageIndex: number, noteIndex: number) => {
+    setSidebarNotes(prev => {
+      const newNotes = [...(prev[pageIndex] || [])];
+      newNotes.splice(noteIndex, 1);
+      return { ...prev, [pageIndex]: newNotes };
+    });
   };
 
   useEffect(() => {
@@ -162,7 +189,17 @@ export function CorrectionInterface({ essay, onClose }: CorrectionInterfaceProps
           try {
             const parsed = JSON.parse(data.feedback);
             setFeedback(parsed.general || '');
-            setSidebarNotes(parsed.pageNotes || {});
+            const notes = parsed.pageNotes || {};
+            const normalizedNotes: Record<number, string[]> = {};
+            Object.keys(notes).forEach(k => {
+              const key = parseInt(k, 10);
+              if (typeof notes[k] === 'string') {
+                if (notes[k].trim() !== '') normalizedNotes[key] = [notes[k]];
+              } else if (Array.isArray(notes[k])) {
+                normalizedNotes[key] = notes[k];
+              }
+            });
+            setSidebarNotes(normalizedNotes);
           } catch (e) {
             setFeedback(data.feedback || '');
             setSidebarNotes({});
@@ -757,23 +794,72 @@ export function CorrectionInterface({ essay, onClose }: CorrectionInterfaceProps
 
                         {/* Right: Independent Notes Column next to each page */}
                         <div 
-                          className="w-[300px] bg-slate-50 border border-slate-200 rounded-2xl p-5 flex flex-col gap-3 shrink-0 self-stretch"
+                          className="w-[300px] bg-slate-50 border border-slate-200 rounded-2xl p-5 flex flex-col gap-3 shrink-0 self-stretch max-h-[calc(100vh-8rem)] overflow-hidden"
                         >
-                          <div className="flex items-center gap-3 pb-3 border-b border-slate-200/60">
+                          <div className="flex items-center gap-3 pb-3 border-b border-slate-200/60 shrink-0">
                             <div className="bg-brand-blue/10 p-2.5 rounded-xl text-brand-blue flex items-center justify-center">
                               <MessageSquare size={18} />
                             </div>
                             <div>
                               <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider">Anotações do Professor</h4>
-                              <p className="text-[10px] text-slate-400 font-medium">Escreva observações para a Página {index + 1}</p>
+                              <p className="text-[10px] text-slate-400 font-medium">Observações para a Página {index + 1}</p>
                             </div>
                           </div>
-                          <textarea
-                            value={sidebarNotes[index] || ''}
-                            onChange={(e) => handleSidebarNoteChange(index, e.target.value)}
-                            placeholder="Digite aqui as observações específicas sobre esta folha da redação..."
-                            className="flex-1 w-full p-4 bg-white border border-slate-200 rounded-xl text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-blue/15 focus:border-brand-blue transition-all resize-none shadow-sm leading-relaxed"
-                          />
+                          
+                          {/* Cards List */}
+                          <div className="flex-1 overflow-y-auto space-y-3 pr-1 custom-scrollbar pb-2">
+                            {(sidebarNotes[index] || []).map((note, noteIndex) => {
+                              const bgColors = [
+                                'bg-blue-50/50 border-blue-100/50',
+                                'bg-amber-50/50 border-amber-100/50',
+                                'bg-emerald-50/50 border-emerald-100/50',
+                                'bg-purple-50/50 border-purple-100/50',
+                                'bg-rose-50/50 border-rose-100/50'
+                              ];
+                              const colorClass = bgColors[noteIndex % bgColors.length];
+
+                              return (
+                                <div key={noteIndex} className={cn("p-3 rounded-xl border shadow-sm relative group transition-all", colorClass)}>
+                                  <div className="flex gap-2">
+                                    <span className="text-xs font-black text-slate-400 mt-0.5 shrink-0 select-none">{noteIndex + 1}.</span>
+                                    <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap pr-5">{note}</p>
+                                  </div>
+                                  <button 
+                                    onClick={() => handleRemoveSidebarNote(index, noteIndex)}
+                                    className="absolute top-2 right-2 p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                                    title="Excluir anotação"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                            {(sidebarNotes[index]?.length || 0) === 0 && (
+                              <div className="text-center py-6 text-slate-400 text-sm italic">
+                                Nenhuma anotação nesta página.
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Add New Note Area */}
+                          <div className="shrink-0 bg-white border border-slate-200 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-brand-blue/20 focus-within:border-brand-blue transition-all">
+                            <textarea
+                              value={draftNotes[index] || ''}
+                              onChange={(e) => setDraftNotes(prev => ({...prev, [index]: e.target.value}))}
+                              placeholder="Nova anotação..."
+                              className="w-full p-3 text-sm text-slate-700 placeholder-slate-400 focus:outline-none resize-none bg-transparent"
+                              rows={3}
+                            />
+                            <div className="bg-slate-50 px-2 py-2 border-t border-slate-100 flex justify-end">
+                              <button
+                                onClick={() => handleAddSidebarNote(index)}
+                                disabled={!draftNotes[index]?.trim()}
+                                className="px-4 py-1.5 bg-brand-blue text-white text-xs font-bold rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                              >
+                                Adicionar
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     ))}
