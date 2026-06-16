@@ -111,7 +111,7 @@ export function TiradentesLandingPage({ onNavigateToLogin }: TiradentesLandingPa
             </h1>
 
             <p className="text-lg text-indigo-200 leading-relaxed max-w-xl mx-auto lg:mx-0 font-medium">
-              Ambiente de correção de redações dedicado aos alunos do Colégio Militar Tiradentes. Desenvolva seu potencial com correções detalhadas.
+              Ambiente exclusivo de correção de redações para os alunos do Colégio Militar Tiradentes. Receba avaliações detalhadas, acompanhe sua evolução e desenvolva competências essenciais para alcançar alto desempenho no ENEM e nos principais processos seletivos.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
