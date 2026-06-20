@@ -42,10 +42,10 @@ export function TeacherPendingEssays({ onStartCorrection }: TeacherPendingEssays
   };
 
   const filteredEssays = essays.filter(essay => {
-    const studentName = essay.student?.name || '';
+    const anonymousName = `Candidato #${essay.id.substring(0, 8).toUpperCase()}`;
     return (
       essay.title.toLowerCase().includes(search.toLowerCase()) || 
-      studentName.toLowerCase().includes(search.toLowerCase())
+      anonymousName.toLowerCase().includes(search.toLowerCase())
     );
   });
 
@@ -73,7 +73,7 @@ export function TeacherPendingEssays({ onStartCorrection }: TeacherPendingEssays
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50/50 border-b border-slate-100">
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Aluno</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Candidato</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Tema / Título</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Data de Envio</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Ação</th>
@@ -112,14 +112,10 @@ export function TeacherPendingEssays({ onStartCorrection }: TeacherPendingEssays
                   <tr key={essay.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-brand-blue/10 flex items-center justify-center text-brand-blue font-bold shadow-sm shrink-0 overflow-hidden">
-                          {essay.student?.avatar ? (
-                            <img src={essay.student.avatar} alt={essay.student.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <User size={18} />
-                          )}
+                        <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs overflow-hidden shrink-0">
+                          <User size={14} />
                         </div>
-                        <span className="font-bold text-slate-800">{essay.student?.name || 'Aluno Desconhecido'}</span>
+                        <span className="font-mono font-semibold text-sm text-slate-700">#{essay.id.substring(0, 8).toUpperCase()}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -144,7 +140,7 @@ export function TeacherPendingEssays({ onStartCorrection }: TeacherPendingEssays
                           // Map the DB object to match what CorrectionInterface expects if needed
                           onStartCorrection({
                             id: essay.id,
-                            studentName: essay.student?.name,
+                            studentName: `Candidato #${essay.id.substring(0, 8).toUpperCase()}`,
                             title: essay.title,
                             pdfUrl: essay.pdf_url,
                             status: essay.status

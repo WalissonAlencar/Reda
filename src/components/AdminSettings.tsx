@@ -4,6 +4,7 @@ import { Settings, Save, UploadCloud, FileText, Trash2, Eye } from 'lucide-react
 
 export function AdminSettings() {
   const [fee, setFee] = useState<string>('3.50');
+  const [royaltyFee, setRoyaltyFee] = useState<string>('0.10');
   const [sheetUrl, setSheetUrl] = useState<string>('');
   const [sheetFile, setSheetFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(true);
@@ -16,9 +17,10 @@ export function AdminSettings() {
 
   const fetchSettings = async () => {
     try {
-      const { data, error } = await supabase.from('platform_settings').select('correction_fee, essay_sheet_url').limit(1).single();
+      const { data, error } = await supabase.from('platform_settings').select('correction_fee, essay_sheet_url, theme_royalty_fee').limit(1).single();
       if (data) {
         setFee(data.correction_fee.toString());
+        if (data.theme_royalty_fee) setRoyaltyFee(data.theme_royalty_fee.toString());
         setSheetUrl(data.essay_sheet_url || '');
       }
     } catch (err) {
@@ -45,8 +47,9 @@ export function AdminSettings() {
       setSuccessMsg('');
       
       const parsedFee = parseFloat(fee.replace(',', '.'));
-      if (isNaN(parsedFee) || parsedFee < 0) {
-        alert("Por favor, insira um valor válido.");
+      const parsedRoyalty = parseFloat(royaltyFee.replace(',', '.'));
+      if (isNaN(parsedFee) || parsedFee < 0 || isNaN(parsedRoyalty) || parsedRoyalty < 0) {
+        alert("Por favor, insira valores válidos.");
         return;
       }
 
@@ -78,6 +81,7 @@ export function AdminSettings() {
       const { error } = await supabase.from('platform_settings')
         .update({ 
           correction_fee: parsedFee,
+          theme_royalty_fee: parsedRoyalty,
           essay_sheet_url: currentSheetUrl
         })
         .neq('id', '00000000-0000-0000-0000-000000000000');
@@ -158,6 +162,27 @@ export function AdminSettings() {
             </div>
             <p className="text-sm text-slate-500 mt-2">
               Este valor será multiplicado pelo total de correções do professor para estimar seus ganhos no painel de produtividade.
+            </p>
+          </div>
+
+          <div className="mt-4">
+            <label className="block text-sm font-bold text-slate-700 mb-2">
+              Valor de royalties por tema usado (R$)
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <span className="text-slate-400 font-bold">R$</span>
+              </div>
+              <input
+                type="text"
+                value={royaltyFee}
+                onChange={(e) => setRoyaltyFee(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-blue focus:border-brand-blue transition-all font-medium text-slate-700"
+                placeholder="Ex: 0,10"
+              />
+            </div>
+            <p className="text-sm text-slate-500 mt-2">
+              Sempre que um aluno enviar uma redação escolhendo um tema criado por um professor, o professor receberá este valor como royalties (ganho passivo).
             </p>
           </div>
         </div>

@@ -14,6 +14,8 @@ import { StudentSubmitEssay } from './components/StudentSubmitEssay';
 import { StudentEssayHistory } from './components/StudentEssayHistory';
 import { TeacherPendingEssays } from './components/TeacherPendingEssays';
 import { TeacherProductivity } from './components/TeacherProductivity';
+import { TeacherFinance } from './components/TeacherFinance';
+import { TeacherThemes } from './components/TeacherThemes';
 import { AdminReports } from './components/AdminReports';
 import { AdminThemes } from './components/AdminThemes';
 import { AdminSettings } from './components/AdminSettings';
@@ -114,6 +116,8 @@ function AppContent() {
               {activeTab === 'dashboard' && <TeacherDashboard onStartCorrection={setSelectedEssay} />}
               {activeTab === 'pending' && <TeacherPendingEssays onStartCorrection={setSelectedEssay} />}
               {activeTab === 'reports' && <TeacherProductivity />}
+              {activeTab === 'finance' && <TeacherFinance />}
+              {activeTab === 'themes' && <TeacherThemes />}
             </>
           )}
 

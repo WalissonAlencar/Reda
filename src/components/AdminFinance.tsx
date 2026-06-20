@@ -14,7 +14,8 @@ import {
   Loader2,
   Search,
   CreditCard,
-  AlertTriangle
+  AlertTriangle,
+  BookOpen
 } from 'lucide-react';
 
 interface TeacherFinance {
@@ -22,6 +23,7 @@ interface TeacherFinance {
   name: string;
   email: string;
   unpaidCorrections: number;
+  unpaidRoyalties: number;
 }
 
 interface PaymentHistory {
@@ -29,6 +31,7 @@ interface PaymentHistory {
   teacher_id: string;
   amount: number;
   corrections_count: number;
+  royalties_count?: number;
   paid_at: string;
   teacher_name?: string;
 }
@@ -65,8 +68,10 @@ export function AdminFinance() {
   const [teachers, setTeachers] = useState<TeacherFinance[]>([]);
   const [history, setHistory] = useState<PaymentHistory[]>([]);
   const [fee, setFee] = useState(3.50);
+  const [royaltyFee, setRoyaltyFee] = useState(0.10);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [withdrawalRequests, setWithdrawalRequests] = useState<any[]>([]);
 
   // Config States
   const [settingsId, setSettingsId] = useState<string | null>(null);
@@ -107,7 +112,9 @@ export function AdminFinance() {
       // 1. Fetch correction fee
       const { data: settingsData } = await supabase.from('platform_settings').select('*').limit(1).single();
       const currentFee = settingsData ? Number(settingsData.correction_fee) : 3.50;
+      const currentRoyaltyFee = settingsData?.theme_royalty_fee ? Number(settingsData.theme_royalty_fee) : 0.10;
       setFee(currentFee);
+      setRoyaltyFee(currentRoyaltyFee);
       if (settingsData) {
         setSettingsId(settingsData.id);
       }
@@ -129,12 +136,41 @@ export function AdminFinance() {
         return acc;
       }, {});
 
+      // 4.1. Load last payment dates for each teacher
+      const { data: allPayments } = await supabase.from('teacher_payments').select('teacher_id, paid_at').order('paid_at', { ascending: false });
+      const lastPaymentByTeacher = (allPayments || []).reduce((acc, curr) => {
+        if (!acc[curr.teacher_id]) acc[curr.teacher_id] = curr.paid_at;
+        return acc;
+      }, {} as Record<string, string>);
+
+      // 4.2. Load royalties (essays submitted with themes)
+      const { data: essaysWithThemes } = await supabase
+        .from('essays')
+        .select(`
+          id, 
+          created_at, 
+          essay_themes ( teacher_id )
+        `)
+        .not('theme_id', 'is', null);
+
+      const royaltiesByTeacher: Record<string, number> = {};
+      (essaysWithThemes || []).forEach((essay: any) => {
+        const teacherId = essay.essay_themes?.teacher_id;
+        if (teacherId) {
+          const lastPayment = lastPaymentByTeacher[teacherId];
+          if (!lastPayment || new Date(essay.created_at) > new Date(lastPayment)) {
+            royaltiesByTeacher[teacherId] = (royaltiesByTeacher[teacherId] || 0) + 1;
+          }
+        }
+      });
+
       // 5. Merge data
       const financeList: TeacherFinance[] = (usersData || []).map(u => ({
         id: u.id,
         name: u.name,
         email: u.email,
-        unpaidCorrections: correctionsByTeacher[u.id] || 0
+        unpaidCorrections: correctionsByTeacher[u.id] || 0,
+        unpaidRoyalties: royaltiesByTeacher[u.id] || 0
       }));
 
       // Sort by unpaidCorrections descending
@@ -155,6 +191,14 @@ export function AdminFinance() {
           teacher_name: h.users?.name
         })));
       }
+      // 7. Fetch withdrawal requests
+      const { data: reqData } = await supabase
+        .from('withdrawal_requests')
+        .select('*, teacher:users(name, email)')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+      setWithdrawalRequests(reqData || []);
+
     } catch (err) {
       console.error("Erro ao carregar dados financeiros", err);
     } finally {
@@ -276,7 +320,7 @@ export function AdminFinance() {
     }
   };
 
-  const handlePay = async (teacherId: string, teacherName: string, amount: number, count: number) => {
+  const handlePay = async (teacherId: string, teacherName: string, amount: number, correctionsCount: number, royaltiesCount: number) => {
     if (!window.confirm(`Confirmar o registro de pagamento de R$ ${amount.toFixed(2)} para ${teacherName}? Isso zerará o ciclo atual do professor.`)) {
       return;
     }
@@ -301,7 +345,8 @@ export function AdminFinance() {
         .insert({
           teacher_id: teacherId,
           amount: amount,
-          corrections_count: count,
+          corrections_count: correctionsCount,
+          royalties_count: royaltiesCount,
           paid_at: now
         });
         
@@ -314,6 +359,47 @@ export function AdminFinance() {
     } catch (err) {
       console.error("Erro ao registrar pagamento", err);
       alert('Erro ao registrar o pagamento.');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleApproveWithdrawal = async (requestId: string, teacherId: string, teacherName: string, amount: number) => {
+    // We run the normal handlePay logic, then mark the request as approved
+    const teacher = teachers.find(t => t.id === teacherId);
+    if (!teacher) return;
+    
+    // Instead of using the requested amount (which might be outdated), we pay their current full cycle
+    const currentAmount = (teacher.unpaidCorrections * fee) + (teacher.unpaidRoyalties * royaltyFee);
+
+    if (!window.confirm(`Tem certeza que já realizou o PIX para ${teacherName}? O ciclo atual será zerado e registrado como pago (R$ ${currentAmount.toFixed(2)}).`)) {
+      return;
+    }
+
+    try {
+      setProcessingId(requestId); // Using processingId for loading state on the button
+      const now = new Date().toISOString();
+
+      // Update corrections
+      await supabase.from('essay_corrections').update({ paid_at: now }).eq('teacher_id', teacherId).is('paid_at', null);
+
+      // Log payment
+      await supabase.from('teacher_payments').insert({
+        teacher_id: teacherId,
+        amount: currentAmount,
+        corrections_count: teacher.unpaidCorrections,
+        royalties_count: teacher.unpaidRoyalties,
+        paid_at: now
+      });
+
+      // Mark request as approved
+      await supabase.from('withdrawal_requests').update({ status: 'approved', updated_at: now }).eq('id', requestId);
+
+      await loadFinanceData();
+      alert('Saque aprovado e pagamento registrado!');
+    } catch (err) {
+      console.error('Erro ao aprovar saque', err);
+      alert('Erro ao aprovar saque.');
     } finally {
       setProcessingId(null);
     }
@@ -430,8 +516,9 @@ export function AdminFinance() {
     }
   };
 
-  const totalOwed = teachers.reduce((acc, t) => acc + (t.unpaidCorrections * fee), 0);
+  const totalOwed = teachers.reduce((acc, t) => acc + (t.unpaidCorrections * fee) + (t.unpaidRoyalties * royaltyFee), 0);
   const totalCorrectionsPending = teachers.reduce((acc, t) => acc + t.unpaidCorrections, 0);
+  const totalRoyaltiesPending = teachers.reduce((acc, t) => acc + t.unpaidRoyalties, 0);
 
   // Transaction calculations
   const approvedTransactions = transactions.filter(t => t.status === 'approved');
@@ -505,12 +592,57 @@ export function AdminFinance() {
       {/* Sub-Tab 1: Teacher Payments */}
       {!loading && activeSubTab === 'teachers' && (
         <>
-          <div className="flex justify-end">
+          <div className="flex justify-end mb-6">
             <div className="bg-brand-blue/5 border border-brand-blue/20 rounded-xl px-4 py-2 flex flex-col items-end">
                <span className="text-xs font-bold text-brand-blue uppercase tracking-wider">Valor Base Atual</span>
                <span className="text-lg font-black text-slate-800">R$ {fee.toFixed(2)} / redação</span>
             </div>
           </div>
+
+          {/* Pending Withdrawals */}
+          {withdrawalRequests.length > 0 && (
+            <div className="bg-amber-50 rounded-[2rem] border border-amber-200 shadow-sm p-8 mb-8">
+              <div className="flex items-center gap-3 mb-6">
+                <AlertTriangle size={24} className="text-amber-500" />
+                <h2 className="text-xl font-bold text-amber-900">Solicitações de Saque Pendentes</h2>
+              </div>
+              <div className="space-y-4">
+                {withdrawalRequests.map(req => (
+                  <div key={req.id} className="bg-white p-6 rounded-2xl border border-amber-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div className="flex-1">
+                      <p className="font-bold text-slate-800 text-lg mb-1">{req.teacher?.name}</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Valor Solicitado</p>
+                          <p className="font-black text-emerald-600 text-xl">R$ {Number(req.amount).toFixed(2)}</p>
+                        </div>
+                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                          <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Chave PIX</p>
+                          <p className="font-mono text-slate-700 font-bold break-all">{req.pix_key}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="shrink-0">
+                      <button
+                        onClick={() => handleApproveWithdrawal(req.id, req.teacher_id, req.teacher?.name, req.amount)}
+                        disabled={processingId === req.id}
+                        className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/30 transition-all disabled:opacity-50"
+                      >
+                        {processingId === req.id ? (
+                          <Loader2 size={20} className="animate-spin" />
+                        ) : (
+                          <>
+                            <CheckCircle2 size={20} />
+                            Aprovar e Pagar
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Global Overview */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -519,8 +651,18 @@ export function AdminFinance() {
                   <AlertCircle size={28} />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-slate-500 mb-1">Correções Pendentes de Pagto</p>
+                  <p className="text-sm font-medium text-slate-500 mb-1">Correções Pendentes</p>
                   <h3 className="text-3xl font-black text-slate-800">{totalCorrectionsPending}</h3>
+                </div>
+              </div>
+
+              <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center gap-5">
+                <div className="w-14 h-14 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 border border-purple-100">
+                  <BookOpen size={28} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-500 mb-1">Royalties de Temas</p>
+                  <h3 className="text-3xl font-black text-slate-800">{totalRoyaltiesPending}</h3>
                 </div>
               </div>
 
@@ -541,14 +683,15 @@ export function AdminFinance() {
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-100 text-sm font-bold text-slate-500 uppercase tracking-wider">
                     <th className="p-6">Professor</th>
-                    <th className="p-6 text-center">Volume no Ciclo</th>
+                    <th className="p-6 text-center">Volume de Correções</th>
+                    <th className="p-6 text-center">Royalties de Temas</th>
                     <th className="p-6 text-right">Valor a Receber</th>
                     <th className="p-6 text-right">Ação</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {teachers.map((teacher) => {
-                    const amount = teacher.unpaidCorrections * fee;
+                    const amount = (teacher.unpaidCorrections * fee) + (teacher.unpaidRoyalties * royaltyFee);
                     const isZero = amount === 0;
 
                     return (
@@ -558,8 +701,13 @@ export function AdminFinance() {
                           <p className="text-sm text-slate-500">{teacher.email}</p>
                         </td>
                         <td className="p-6 text-center">
-                          <span className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-sm font-bold ${isZero ? 'bg-slate-100 text-slate-400' : 'bg-brand-orange/10 text-brand-orange'}`}>
+                          <span className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-sm font-bold ${teacher.unpaidCorrections === 0 ? 'bg-slate-100 text-slate-400' : 'bg-brand-orange/10 text-brand-orange'}`}>
                             {teacher.unpaidCorrections}
+                          </span>
+                        </td>
+                        <td className="p-6 text-center">
+                          <span className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-sm font-bold ${teacher.unpaidRoyalties === 0 ? 'bg-slate-100 text-slate-400' : 'bg-purple-100 text-purple-700'}`}>
+                            {teacher.unpaidRoyalties}
                           </span>
                         </td>
                         <td className="p-6 text-right">
@@ -569,7 +717,7 @@ export function AdminFinance() {
                         </td>
                         <td className="p-6 text-right">
                           <button
-                            onClick={() => handlePay(teacher.id, teacher.name, amount, teacher.unpaidCorrections)}
+                            onClick={() => handlePay(teacher.id, teacher.name, amount, teacher.unpaidCorrections, teacher.unpaidRoyalties)}
                             disabled={isZero || processingId === teacher.id}
                             className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all
                               ${isZero 
@@ -621,7 +769,7 @@ export function AdminFinance() {
                     </div>
                     <div className="text-right">
                       <p className="font-black text-emerald-600">R$ {item.amount.toFixed(2)}</p>
-                      <p className="text-xs text-slate-400 font-medium">{item.corrections_count} correções no ciclo</p>
+                      <p className="text-xs text-slate-400 font-medium">{item.corrections_count} correções | {item.royalties_count || 0} royalties</p>
                     </div>
                   </div>
                 ))}

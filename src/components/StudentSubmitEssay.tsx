@@ -202,11 +202,13 @@ export function StudentSubmitEssay() {
         .getPublicUrl(filePath);
 
       // 3. Create the essay record in the database
+      const selectedTheme = themes.find(t => t.title === title);
       const { error: dbError } = await supabase
         .from('essays')
         .insert({
           student_id: user.id,
           title: title,
+          theme_id: selectedTheme ? selectedTheme.id : null,
           pdf_url: publicUrl,
           status: 'sent',
           correction_type: correctionType,

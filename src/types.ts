@@ -8,6 +8,7 @@ export interface User {
   avatar?: string;
   essay_credits?: number;
   phone?: string;
+  pix_key?: string;
   created_at?: string;
   age?: number;
   school_name?: string;
@@ -57,4 +58,17 @@ export interface PartnerSchool {
   id: string;
   name: string;
   created_at: string;
+}
+
+export interface WithdrawalRequest {
+  id: string;
+  teacher_id: string;
+  amount: number;
+  pix_key: string;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
+  teacher?: {
+    name: string;
+    email: string;
+  };
 }

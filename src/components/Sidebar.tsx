@@ -39,6 +39,8 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
       { id: 'dashboard', label: 'Minhas Correções', icon: LayoutDashboard },
       { id: 'pending', label: 'Pendentes', icon: BookOpen },
       { id: 'reports', label: 'Produtividade', icon: BarChart3 },
+      { id: 'finance', label: 'Financeiro', icon: DollarSign },
+      { id: 'themes', label: 'Meus Temas', icon: Library },
     ],
     STUDENT: [
       { id: 'dashboard', label: 'Meu Progresso', icon: LayoutDashboard },
